@@ -44,6 +44,8 @@ EGRESS_TYPE_MAP = {
     "stair": "stairs",
 }
 
+REVERSE_DOORS_FOR_DIR = "EB"
+
 REQUIRED_COLUMNS = {
     "Doors": ["Car", "x"],
     "Stations": [
@@ -982,6 +984,8 @@ def build_data():
     ensure_columns(meta, "Egresses", egress_rows[0].keys() if egress_rows else [], REQUIRED_COLUMNS["Egresses"])
 
     doors, door_meta = build_doors(door_rows)
+    door_by_index = {door["door_index"]: door for door in doors}
+    total_doors = len(doors)
     exit_map = build_exit_map(exit_rows)
 
     stations = []
@@ -1053,27 +1057,37 @@ def build_data():
         if not door_matches:
             continue
 
-        egress_entry = {
-            "type": egress_type,
-            "label": label,
-            "x": round(x_value, 3),
-            "delta": delta,
-            "doors": [
-                {
-                    "door_index": door["door_index"],
-                    "car_index": door["car_index"],
-                    "door_in_car": door["door_in_car"],
-                }
-                for door in door_matches
-            ],
-        }
-
         if platform_is_side(station["platform_type"]) and y_int in {1, 2}:
             dirs = ["EB"] if y_int == 1 else ["WB"]
         else:
             dirs = ["WB", "EB"]
 
+        def map_doors_for_direction(direction_key):
+            if direction_key != REVERSE_DOORS_FOR_DIR:
+                mapped = door_matches
+            else:
+                mapped = []
+                for door in door_matches:
+                    rev_index = total_doors - door["door_index"] + 1
+                    mapped.append(door_by_index[rev_index])
+                mapped.sort(key=lambda item: item["door_index"])
+            return [
+                {
+                    "door_index": door["door_index"],
+                    "car_index": door["car_index"],
+                    "door_in_car": door["door_in_car"],
+                }
+                for door in mapped
+            ]
+
         for dir_key in dirs:
+            egress_entry = {
+                "type": egress_type,
+                "label": label,
+                "x": round(x_value, 3),
+                "delta": delta,
+                "doors": map_doors_for_direction(dir_key),
+            }
             station["egress_by_dir"][dir_key][egress_type].append(egress_entry)
 
     if unknown_stations:
