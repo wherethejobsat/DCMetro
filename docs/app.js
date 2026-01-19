@@ -315,8 +315,7 @@ const DATA = JSON.parse(document.getElementById("app-data").textContent);
         lines.push("");
       });
 
-      const payload = lines.join("
-");
+      const payload = lines.join("\n");
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(payload).catch(() => {});
       }

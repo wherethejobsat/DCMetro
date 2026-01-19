@@ -685,7 +685,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         lines.push("");
       });
 
-      const payload = lines.join("\n");
+      const payload = lines.join("\\n");
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(payload).catch(() => {});
       }
