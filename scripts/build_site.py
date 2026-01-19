@@ -397,7 +397,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
     let selectedStation = null;
 
-    const lineName = (code) => DATA.lines[code]?.name || code;
+    const lineName = (code) => (DATA.lines[code] ? DATA.lines[code].name : code);
 
     const renderLineTags = (station) => {
       lineTags.innerHTML = "";
@@ -407,7 +407,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       station.lines.forEach((code) => {
         const tag = document.createElement("span");
         tag.className = "tag";
-        tag.style.background = DATA.lines[code]?.color || "#e5ecef";
+        tag.style.background = DATA.lines[code] ? DATA.lines[code].color : "#e5ecef";
         tag.style.color = "#111";
         tag.textContent = lineName(code);
         lineTags.appendChild(tag);
@@ -497,7 +497,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
       fillSelect(lineSelect, lineOptions, "Select a line");
       lineSelect.disabled = false;
-      lineSelect.value = lineOptions[0]?.value || "";
+      lineSelect.value = lineOptions.length ? lineOptions[0].value : "";
 
       const dirOptions = selectedStation.directions.map((dir) => ({
         value: dir.key,
@@ -505,12 +505,21 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       }));
       fillSelect(directionSelect, dirOptions, "Select a direction");
       directionSelect.disabled = false;
-      directionSelect.value = dirOptions[0]?.value || "";
+      directionSelect.value = dirOptions.length ? dirOptions[0].value : "";
 
       renderLineTags(selectedStation);
     };
 
     const formatDoorLabel = (door) => `Car ${door.car_index}, Door ${door.door_in_car}`;
+
+    const findDirectionLabel = (station, key) => {
+      for (let i = 0; i < station.directions.length; i += 1) {
+        if (station.directions[i].key === key) {
+          return station.directions[i].label;
+        }
+      }
+      return "";
+    };
 
     const formatDoorIndex = (doors) => {
       if (doors.length === 1) {
@@ -558,7 +567,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
       const lineCode = lineSelect.value || selectedStation.lines[0];
       const directionKey = directionSelect.value || selectedStation.directions[0].key;
-      const directionLabel = selectedStation.directions.find((dir) => dir.key === directionKey)?.label || "";
+      const directionLabel = findDirectionLabel(selectedStation, directionKey);
 
       resultsTitle.textContent = `${selectedStation.name} - ${lineName(lineCode)} Line`;
       resultsSub.textContent = directionLabel;
@@ -643,7 +652,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       }
       const lineCode = lineSelect.value || selectedStation.lines[0];
       const directionKey = directionSelect.value || selectedStation.directions[0].key;
-      const directionLabel = selectedStation.directions.find((dir) => dir.key === directionKey)?.label || "";
+      const directionLabel = findDirectionLabel(selectedStation, directionKey);
       const egressForDir = selectedStation.egress_by_dir[directionKey] || {};
 
       const lines = [];
@@ -700,6 +709,7 @@ const CACHE_NAME = `metro-exit-${CACHE_VERSION}`;
 const ASSETS = [
   "./",
   "./index.html",
+  "./app.js",
   "./manifest.webmanifest",
   "./sw.js",
   "./icons/icon-192.svg",
@@ -1090,9 +1100,8 @@ def build_data():
     }
 
     data_json = json.dumps(data, ensure_ascii=True, sort_keys=True, separators=(",", ":"))
-    data_hash = hashlib.sha1(data_json.encode("ascii")).hexdigest()[:10]
 
-    return data, data_json, data_hash
+    return data, data_json
 
 
 def write_file(path, content):
@@ -1100,17 +1109,30 @@ def write_file(path, content):
 
 
 def build_site():
-    data, data_json, data_hash = build_data()
+    data, data_json = build_data()
+    cache_seed = data_json + HTML_TEMPLATE
+    cache_version = hashlib.sha1(cache_seed.encode("ascii")).hexdigest()[:10]
 
     DOCS_DIR.mkdir(parents=True, exist_ok=True)
     ICONS_DIR.mkdir(parents=True, exist_ok=True)
 
     html = HTML_TEMPLATE.replace("{{DATA_JSON}}", data_json)
-    html = html.replace("{{CACHE_VERSION}}", data_hash)
+    html = html.replace("{{CACHE_VERSION}}", cache_version)
+
+    script_pattern = re.compile(
+        r'(<script id="app-data" type="application/json">.*?</script>)\s*<script>(.*?)</script>',
+        re.S,
+    )
+    match = script_pattern.search(html)
+    if not match:
+        fail("Failed to extract app script from HTML template.")
+    app_js = match.group(2).strip() + "\n"
+    html = script_pattern.sub(r'\1\n  <script src="./app.js"></script>', html, count=1)
 
     write_file(DOCS_DIR / "index.html", html)
+    write_file(DOCS_DIR / "app.js", app_js)
 
-    sw_js = SW_TEMPLATE.replace("{{CACHE_VERSION}}", data_hash)
+    sw_js = SW_TEMPLATE.replace("{{CACHE_VERSION}}", cache_version)
     write_file(DOCS_DIR / "sw.js", sw_js)
 
     write_file(DOCS_DIR / "manifest.webmanifest", MANIFEST_TEMPLATE)

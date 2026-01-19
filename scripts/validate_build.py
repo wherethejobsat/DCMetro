@@ -122,6 +122,12 @@ def validate():
     if not index_path.exists():
         fail("docs/index.html does not exist. Run scripts/build_site.py first.")
 
+    app_js_path = DOCS_DIR / "app.js"
+    if not app_js_path.exists():
+        fail("docs/app.js does not exist. Run scripts/build_site.py first.")
+    if not app_js_path.read_text(encoding="utf-8").strip():
+        fail("docs/app.js is empty.")
+
     data = load_embedded_data(index_path)
     stations = data.get("stations", [])
     if not stations:
