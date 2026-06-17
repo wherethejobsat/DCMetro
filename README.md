@@ -1,5 +1,19 @@
 # DC Metro Station Exits
 
+## Use the web app
+
+Live app: https://wherethejobsat.github.io/DCMetro/
+
+The web app is a mobile-friendly station exit guide. Choose a station, line,
+and direction to see which train car and door are closest to escalators,
+stairs, and elevators.
+
+This repo is also the source dataset behind the app. GitHub shows this README
+on the repo front page, so the live app link above is the fastest way to open
+the guide from the public repo.
+
+## Source data
+
 These data contain the information I used to create [these diagrams](https://www.reddit.com/r/washingtondc/comments/15mbos4/i_mapped_the_layouts_of_all_98_metro_stations_so/), which map the layouts of DC Metro stations and their exits.
 
 * meta.csv has info on what the variables mean.
@@ -30,7 +44,7 @@ Note: I am not associated with WMATA.
 
 * Gallery Place: Changed exits to reflect new lettered designations, marked priority escalator for Exit D (elevator)
 
-* L’Enfant Plaza: Changed exits to reflect new lettered designations
+* L'Enfant Plaza: Changed exits to reflect new lettered designations
 
 * Silver Spring: Removed escalator that is normally for ingress
 

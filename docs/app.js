@@ -16,18 +16,31 @@ const DATA = JSON.parse(document.getElementById("app-data").textContent);
       .trim();
 
     const stations = DATA.stations.map((station) => {
-      const tokens = [station.name, station.alt || "", station.subtitle || ""].join(" ");
+      const tokens = [
+        station.name,
+        station.alt || "",
+        station.subtitle || "",
+        station.station_code || "",
+      ].join(" ");
       return {
         ...station,
         search: normalize(tokens),
         nameLower: station.name.toLowerCase(),
         altLower: (station.alt || "").toLowerCase(),
+        codeLower: (station.station_code || "").toLowerCase(),
       };
     });
 
     let selectedStation = null;
 
     const lineName = (code) => (DATA.lines[code] ? DATA.lines[code].name : code);
+
+    const levelLineHint = (station) => {
+      if (!/\((Lower|Upper) Level\)$/.test(station.name)) {
+        return "";
+      }
+      return ` [${station.lines.map(lineName).join(", ")}]`;
+    };
 
     const renderLineTags = (station) => {
       lineTags.innerHTML = "";
@@ -37,8 +50,8 @@ const DATA = JSON.parse(document.getElementById("app-data").textContent);
       station.lines.forEach((code) => {
         const tag = document.createElement("span");
         tag.className = "tag";
-        tag.style.background = DATA.lines[code] ? DATA.lines[code].color : "#e5ecef";
-        tag.style.color = "#111";
+        tag.style.background = DATA.lines[code] ? DATA.lines[code].color : "#202a3b";
+        tag.style.color = ["RD", "BL"].includes(code) ? "#fff" : "#111";
         tag.textContent = lineName(code);
         lineTags.appendChild(tag);
       });
@@ -47,7 +60,7 @@ const DATA = JSON.parse(document.getElementById("app-data").textContent);
     const buildSuggestionButton = (station) => {
       const button = document.createElement("button");
       const subtitle = station.subtitle ? ` - ${station.subtitle}` : "";
-      button.textContent = `${station.name}${subtitle}`;
+      button.textContent = `${station.name}${levelLineHint(station)}${subtitle}`;
       button.type = "button";
       button.addEventListener("click", () => selectStation(station));
       return button;
@@ -76,6 +89,9 @@ const DATA = JSON.parse(document.getElementById("app-data").textContent);
           score += 3;
         }
         if (station.altLower && station.altLower.startsWith(query.toLowerCase())) {
+          score += 2;
+        }
+        if (station.codeLower && station.codeLower.startsWith(query.toLowerCase())) {
           score += 2;
         }
         if (station.search.includes(q)) {
@@ -322,8 +338,21 @@ const DATA = JSON.parse(document.getElementById("app-data").textContent);
     });
 
     if ("serviceWorker" in navigator) {
+      let refreshingForUpdate = false;
+      const reloadOnControllerChange = Boolean(navigator.serviceWorker.controller);
+
+      navigator.serviceWorker.addEventListener("controllerchange", () => {
+        if (!reloadOnControllerChange || refreshingForUpdate) {
+          return;
+        }
+        refreshingForUpdate = true;
+        window.location.reload();
+      });
+
       window.addEventListener("load", () => {
-        navigator.serviceWorker.register("./sw.js");
+        navigator.serviceWorker.register("./sw.js").then((registration) => {
+          registration.update();
+        }).catch(() => {});
       });
     }
 

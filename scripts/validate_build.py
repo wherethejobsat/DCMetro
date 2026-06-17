@@ -6,6 +6,8 @@ import sys
 from pathlib import Path
 from collections import defaultdict
 
+from build_site import WMATA_STATION_CODES
+
 BASE_DIR = Path(__file__).resolve().parents[1]
 DOCS_DIR = BASE_DIR / "docs"
 
@@ -47,6 +49,8 @@ REQUIRED_COLUMNS = {
         "group",
     ],
 }
+
+STATION_CODE_PATTERN = re.compile(r"^[A-Z][0-9]{2}$")
 
 
 def fail(message):
@@ -141,6 +145,30 @@ def validate():
     for name in sample_names:
         if name not in names_in_data:
             fail(f"Station not found in embedded data: {name}")
+
+    for station in stations:
+        name = station.get("name")
+        station_code = station.get("station_code")
+        if not station_code:
+            fail(f"Embedded station is missing station_code: {name}")
+        if not STATION_CODE_PATTERN.fullmatch(station_code):
+            fail(f"Invalid station_code for {name}: {station_code}")
+        expected_code = WMATA_STATION_CODES.get(name)
+        if expected_code is None:
+            fail(f"Embedded station has no expected WMATA code: {name}")
+        if station_code != expected_code:
+            fail(
+                f"Embedded station_code mismatch for {name}: "
+                f"expected {expected_code}, found {station_code}"
+            )
+
+    columbia_heights = [
+        station for station in stations if station.get("name") == "Columbia Heights"
+    ]
+    if not columbia_heights:
+        fail("Embedded data is missing Columbia Heights.")
+    if columbia_heights[0].get("station_code") != "E04":
+        fail("Columbia Heights station_code should be E04.")
 
     print("Validation passed.")
 

@@ -38,6 +38,113 @@ LINE_COLS = {
     "SV": "hasSV",
 }
 
+# WMATA rail station codes used by public APIs. Split-level transfer rows use
+# the code for the level that serves that row's lines.
+WMATA_STATION_CODES = {
+    "Addison Road": "G03",
+    "Anacostia": "F06",
+    "Archives": "F02",
+    "Arlington Cemetery": "C06",
+    "Ashburn": "N12",
+    "Ballston-MU": "K04",
+    "Benning Road": "G01",
+    "Bethesda": "A09",
+    "Braddock Road": "C12",
+    "Branch Avenue": "F11",
+    "Brookland-CUA": "B05",
+    "Capitol Heights": "G02",
+    "Capitol South": "D05",
+    "Cheverly": "D11",
+    "Clarendon": "K02",
+    "Cleveland Park": "A05",
+    "College Park-U of Md": "E09",
+    "Columbia Heights": "E04",
+    "Congress Heights": "F07",
+    "Court House": "K01",
+    "Crystal City": "C09",
+    "Deanwood": "D10",
+    "Downtown Largo": "G05",
+    "Dunn Loring": "K07",
+    "Dupont Circle": "A03",
+    "East Falls Church": "K05",
+    "Eastern Market": "D06",
+    "Eisenhower Avenue": "C14",
+    "Farragut North": "A02",
+    "Farragut West": "C03",
+    "Federal Center SW": "D04",
+    "Federal Triangle": "D01",
+    "Foggy Bottom-GWU": "C04",
+    "Forest Glen": "B09",
+    "Fort Totten (Lower Level)": "E06",
+    "Fort Totten (Upper Level)": "B06",
+    "Franconia-Springfield": "J03",
+    "Friendship Heights": "A08",
+    "Gallery Place (Lower Level)": "F01",
+    "Gallery Place (Upper Level)": "B01",
+    "Georgia Avenue-Petworth": "E05",
+    "Glenmont": "B11",
+    "Greenbelt": "E10",
+    "Greensboro": "N03",
+    "Grosvenor-Strathmore": "A11",
+    "Herndon": "N08",
+    "Huntington": "C15",
+    "Hyattsville Crossing": "E08",
+    "Innovation Center": "N09",
+    "Judiciary Square": "B02",
+    "King Street-Old Town": "C13",
+    "L'Enfant Plaza (Lower Level)": "D03",
+    "L'Enfant Plaza (Upper Level)": "F03",
+    "Landover": "D12",
+    "Loudoun Gateway": "N11",
+    "McLean": "N01",
+    "McPherson Square": "C02",
+    "Medical Center": "A10",
+    "Metro Center (Lower Level)": "C01",
+    "Metro Center (Upper Level)": "A01",
+    "Minnesota Avenue": "D09",
+    "Morgan Boulevard": "G04",
+    "Mount Vernon Square": "E01",
+    "Navy Yard-Ballpark": "F05",
+    "Naylor Road": "F09",
+    "New Carrollton": "D13",
+    "NoMa-Gallaudet U": "B35",
+    "North Bethesda": "A12",
+    "Pentagon": "C07",
+    "Pentagon City": "C08",
+    "Potomac Avenue": "D07",
+    "Potomac Yard": "C11",
+    "Reston Town Center": "N07",
+    "Rhode Island Avenue": "B04",
+    "Rockville": "A14",
+    "Rosslyn": "C05",
+    "Shady Grove": "A15",
+    "Shaw-Howard U": "E02",
+    "Silver Spring": "B08",
+    "Smithsonian": "D02",
+    "Southern Avenue": "F08",
+    "Spring Hill": "N04",
+    "Stadium-Armory": "D08",
+    "Suitland": "F10",
+    "Takoma": "B07",
+    "Tenleytown-AU": "A07",
+    "Twinbrook": "A13",
+    "Tysons": "N02",
+    "U Street": "E03",
+    "Union Station": "B03",
+    "Van Dorn Street": "J02",
+    "Van Ness-UDC": "A06",
+    "Vienna": "K08",
+    "Virginia Square-GMU": "K03",
+    "Washington Dulles International Airport": "N10",
+    "Washington National Airport": "C10",
+    "Waterfront": "F04",
+    "West Falls Church": "K06",
+    "West Hyattsville": "E07",
+    "Wheaton": "B10",
+    "Wiehle-Reston East": "N06",
+    "Woodley Park": "A04",
+}
+
 EGRESS_TYPE_MAP = {
     "esc": "escalator",
     "el": "elevator",
@@ -82,21 +189,24 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <head>
   <meta charset=\"utf-8\">
   <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
-  <meta name=\"theme-color\" content=\"#0f4c4b\">
+  <meta name=\"theme-color\" content=\"#111722\">
   <link rel=\"manifest\" href=\"./manifest.webmanifest\">
   <title>Metro Exit Guide</title>
   <style>
     :root {
-      --bg: #f4f1e6;
-      --bg-accent: #e8f2f1;
-      --ink: #1d2327;
-      --muted: #5b646b;
-      --card: rgba(255, 255, 255, 0.92);
-      --accent: #0f4c4b;
-      --accent-soft: #d5ebe9;
-      --sun: #f08a24;
-      --shadow: 0 12px 30px rgba(0, 0, 0, 0.12);
-      --radius: 18px;
+      --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", serif;
+      --bg: #111722;
+      --ink: #f3efe6;
+      --muted: #b9c0cc;
+      --card: #182131;
+      --accent: #8fb9dc;
+      --accent-warm: #e0a15f;
+      --accent-soft: #202a3b;
+      --border: #334155;
+      --on-accent: #111722;
+      --shadow: 0 12px 34px rgba(0, 0, 0, 0.32);
+      --radius: 8px;
     }
 
     * {
@@ -106,12 +216,14 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     body {
       margin: 0;
       min-height: 100vh;
-      font-family: "Trebuchet MS", "Gill Sans", "Segoe UI", sans-serif;
+      font-family: var(--font-sans);
+      line-height: 1.6;
       color: var(--ink);
       background:
-        radial-gradient(circle at 15% 20%, rgba(240, 138, 36, 0.12), transparent 55%),
-        radial-gradient(circle at 85% 10%, rgba(15, 76, 75, 0.12), transparent 45%),
-        linear-gradient(130deg, var(--bg), var(--bg-accent));
+        linear-gradient(90deg, rgba(143, 185, 220, 0.08) 1px, transparent 1px),
+        linear-gradient(180deg, rgba(224, 161, 95, 0.05) 1px, transparent 1px),
+        var(--bg);
+      background-size: 72px 72px, 72px 72px, auto;
     }
 
     header {
@@ -121,9 +233,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
     header h1 {
       margin: 0 0 6px;
-      font-family: "Georgia", "Times New Roman", serif;
+      font-family: var(--font-serif);
       font-size: 1.6rem;
-      letter-spacing: 0.5px;
+      letter-spacing: 0;
     }
 
     header p {
@@ -143,6 +255,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       border-radius: var(--radius);
       padding: 18px;
       box-shadow: var(--shadow);
+      border: 1px solid var(--border);
       margin-bottom: 18px;
       animation: rise 0.6s ease both;
     }
@@ -171,17 +284,18 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     input, select, button {
       width: 100%;
       min-height: 44px;
-      border-radius: 12px;
-      border: 1px solid #c9d2d5;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
       padding: 10px 12px;
       font-size: 1rem;
       font-family: inherit;
-      background: #fff;
+      background: var(--card);
+      color: var(--ink);
     }
 
     input:focus, select:focus, button:focus {
-      outline: 2px solid rgba(15, 76, 75, 0.35);
-      outline-offset: 2px;
+      outline: 3px solid rgba(224, 161, 95, 0.4);
+      outline-offset: 3px;
     }
 
     .combo {
@@ -194,26 +308,27 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       width: auto;
       padding: 0 14px;
       background: var(--accent-soft);
-      border-color: transparent;
+      border-color: var(--border);
+      color: var(--accent);
       cursor: pointer;
       font-weight: 600;
     }
 
     .suggestions {
       margin-top: 8px;
-      border-radius: 12px;
+      border-radius: var(--radius);
       overflow: hidden;
-      border: 1px solid #d4dbdf;
-      background: #fff;
+      border: 1px solid var(--border);
+      background: var(--card);
     }
 
     .suggestions button {
       border: none;
-      border-bottom: 1px solid #edf1f3;
+      border-bottom: 1px solid var(--border);
       text-align: left;
       width: 100%;
       padding: 12px 14px;
-      background: #fff;
+      background: var(--card);
       cursor: pointer;
     }
 
@@ -233,8 +348,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       border-radius: 999px;
       font-size: 0.75rem;
       font-weight: 700;
-      color: #1f2327;
-      background: #e5ecef;
+      color: var(--ink);
+      background: var(--accent-soft);
     }
 
     .results-header {
@@ -251,7 +366,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
     .copy-btn {
       background: var(--accent);
-      color: #fff;
+      color: var(--on-accent);
       border: none;
       font-weight: 700;
       cursor: pointer;
@@ -265,15 +380,15 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     .egress-block h3 {
       margin: 0 0 8px;
       font-size: 1.1rem;
-      font-family: "Georgia", "Times New Roman", serif;
+      font-family: var(--font-serif);
     }
 
     .egress-item {
-      background: #f9fbfb;
-      border-radius: 14px;
+      background: var(--accent-soft);
+      border-radius: var(--radius);
       padding: 12px 14px;
       margin-bottom: 8px;
-      border: 1px solid #e4ebee;
+      border: 1px solid var(--border);
     }
 
     .egress-item strong {
@@ -388,18 +503,31 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       .trim();
 
     const stations = DATA.stations.map((station) => {
-      const tokens = [station.name, station.alt || "", station.subtitle || ""].join(" ");
+      const tokens = [
+        station.name,
+        station.alt || "",
+        station.subtitle || "",
+        station.station_code || "",
+      ].join(" ");
       return {
         ...station,
         search: normalize(tokens),
         nameLower: station.name.toLowerCase(),
         altLower: (station.alt || "").toLowerCase(),
+        codeLower: (station.station_code || "").toLowerCase(),
       };
     });
 
     let selectedStation = null;
 
     const lineName = (code) => (DATA.lines[code] ? DATA.lines[code].name : code);
+
+    const levelLineHint = (station) => {
+      if (!/\\((Lower|Upper) Level\\)$/.test(station.name)) {
+        return "";
+      }
+      return ` [${station.lines.map(lineName).join(", ")}]`;
+    };
 
     const renderLineTags = (station) => {
       lineTags.innerHTML = "";
@@ -409,8 +537,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       station.lines.forEach((code) => {
         const tag = document.createElement("span");
         tag.className = "tag";
-        tag.style.background = DATA.lines[code] ? DATA.lines[code].color : "#e5ecef";
-        tag.style.color = "#111";
+        tag.style.background = DATA.lines[code] ? DATA.lines[code].color : "#202a3b";
+        tag.style.color = ["RD", "BL"].includes(code) ? "#fff" : "#111";
         tag.textContent = lineName(code);
         lineTags.appendChild(tag);
       });
@@ -419,7 +547,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     const buildSuggestionButton = (station) => {
       const button = document.createElement("button");
       const subtitle = station.subtitle ? ` - ${station.subtitle}` : "";
-      button.textContent = `${station.name}${subtitle}`;
+      button.textContent = `${station.name}${levelLineHint(station)}${subtitle}`;
       button.type = "button";
       button.addEventListener("click", () => selectStation(station));
       return button;
@@ -448,6 +576,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
           score += 3;
         }
         if (station.altLower && station.altLower.startsWith(query.toLowerCase())) {
+          score += 2;
+        }
+        if (station.codeLower && station.codeLower.startsWith(query.toLowerCase())) {
           score += 2;
         }
         if (station.search.includes(q)) {
@@ -694,8 +825,21 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     });
 
     if ("serviceWorker" in navigator) {
+      let refreshingForUpdate = false;
+      const reloadOnControllerChange = Boolean(navigator.serviceWorker.controller);
+
+      navigator.serviceWorker.addEventListener("controllerchange", () => {
+        if (!reloadOnControllerChange || refreshingForUpdate) {
+          return;
+        }
+        refreshingForUpdate = true;
+        window.location.reload();
+      });
+
       window.addEventListener("load", () => {
-        navigator.serviceWorker.register("./sw.js");
+        navigator.serviceWorker.register("./sw.js").then((registration) => {
+          registration.update();
+        }).catch(() => {});
       });
     }
 
@@ -719,6 +863,7 @@ const ASSETS = [
 ];
 
 self.addEventListener("install", (event) => {
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
   );
@@ -726,9 +871,11 @@ self.addEventListener("install", (event) => {
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => Promise.all(
-      keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
-    ))
+    caches.keys()
+      .then((keys) => Promise.all(
+        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
+      ))
+      .then(() => self.clients.claim())
   );
 });
 
@@ -749,8 +896,8 @@ MANIFEST_TEMPLATE = """{
   "short_name": "Exit Guide",
   "start_url": ".",
   "display": "standalone",
-  "background_color": "#f4f1e6",
-  "theme_color": "#0f4c4b",
+  "background_color": "#111722",
+  "theme_color": "#111722",
   "icons": [
     {
       "src": "./icons/icon-192.svg",
@@ -767,18 +914,18 @@ MANIFEST_TEMPLATE = """{
 """
 
 ICON_192 = """<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"192\" height=\"192\" viewBox=\"0 0 192 192\">
-  <rect width=\"192\" height=\"192\" rx=\"36\" fill=\"#0f4c4b\"/>
-  <rect x=\"30\" y=\"36\" width=\"132\" height=\"120\" rx=\"22\" fill=\"#f4f1e6\"/>
-  <path d=\"M54 124l30-44 26 28 28-36 26 52H54z\" fill=\"#f08a24\"/>
-  <circle cx=\"64\" cy=\"72\" r=\"10\" fill=\"#0f4c4b\"/>
+  <rect width=\"192\" height=\"192\" rx=\"36\" fill=\"#111722\"/>
+  <rect x=\"30\" y=\"36\" width=\"132\" height=\"120\" rx=\"22\" fill=\"#182131\"/>
+  <path d=\"M54 124l30-44 26 28 28-36 26 52H54z\" fill=\"#e0a15f\"/>
+  <circle cx=\"64\" cy=\"72\" r=\"10\" fill=\"#8fb9dc\"/>
 </svg>
 """
 
 ICON_512 = """<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"512\" height=\"512\" viewBox=\"0 0 512 512\">
-  <rect width=\"512\" height=\"512\" rx=\"96\" fill=\"#0f4c4b\"/>
-  <rect x=\"80\" y=\"96\" width=\"352\" height=\"320\" rx=\"56\" fill=\"#f4f1e6\"/>
-  <path d=\"M144 330l88-132 76 84 82-108 74 156H144z\" fill=\"#f08a24\"/>
-  <circle cx=\"170\" cy=\"188\" r=\"26\" fill=\"#0f4c4b\"/>
+  <rect width=\"512\" height=\"512\" rx=\"96\" fill=\"#111722\"/>
+  <rect x=\"80\" y=\"96\" width=\"352\" height=\"320\" rx=\"56\" fill=\"#182131\"/>
+  <path d=\"M144 330l88-132 76 84 82-108 74 156H144z\" fill=\"#e0a15f\"/>
+  <circle cx=\"170\" cy=\"188\" r=\"26\" fill=\"#8fb9dc\"/>
 </svg>
 """
 
@@ -988,12 +1135,28 @@ def build_data():
     total_doors = len(doors)
     exit_map = build_exit_map(exit_rows)
 
+    station_names = {
+        (row.get("nameStd") or "").strip()
+        for row in station_rows
+        if (row.get("nameStd") or "").strip()
+    }
+    missing_station_codes = sorted(station_names - set(WMATA_STATION_CODES))
+    if missing_station_codes:
+        fail(f"Missing WMATA station codes: {', '.join(missing_station_codes)}")
+
+    extra_station_codes = sorted(set(WMATA_STATION_CODES) - station_names)
+    if extra_station_codes:
+        fail(f"WMATA station code map has unknown stations: {', '.join(extra_station_codes)}")
+
     stations = []
     station_map = {}
     for row in station_rows:
         name = (row.get("nameStd") or "").strip()
         if not name:
             continue
+        station_code = WMATA_STATION_CODES[name]
+        if not re.fullmatch(r"[A-Z][0-9]{2}", station_code):
+            fail(f"Invalid WMATA station code for {name}: {station_code}")
         lines = [code for code, col in LINE_COLS.items() if is_true(row.get(col))]
         lines.sort(key=lambda code: [c[0] for c in LINE_DEFS].index(code))
 
@@ -1012,6 +1175,7 @@ def build_data():
 
         station = {
             "name": name,
+            "station_code": station_code,
             "alt": (row.get("nameAlt") or "").strip(),
             "subtitle": (row.get("subtitile") or "").strip(),
             "platform_type": (row.get("platformType") or "").strip(),

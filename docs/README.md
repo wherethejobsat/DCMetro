@@ -1,5 +1,13 @@
 # Metro Exit Guide (static PWA)
 
+## Public URL
+
+Live app: https://wherethejobsat.github.io/DCMetro/
+
+This repo is configured to publish the static app from `docs/` with GitHub
+Pages. If the repository is public, GitHub visitors can also find this link at
+the top of the root README.
+
 ## Local build and serve
 
 1) Build the site:
@@ -20,10 +28,13 @@ Open http://localhost:8000/
 
 ### GitHub Pages (docs folder)
 
-1) Commit the generated docs/ folder.
+1) Commit the generated `docs/` folder.
 2) In GitHub, go to Settings -> Pages.
-3) Set Source to the branch you want, and Folder to /docs.
+3) Set Source to the branch you want, and Folder to `/docs`.
 4) Save.
+5) Optional: in the repo About panel, set Website to
+   `https://wherethejobsat.github.io/DCMetro/` so the app link appears in the
+   sidebar too.
 
 ### Netlify
 
