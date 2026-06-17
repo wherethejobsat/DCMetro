@@ -3,7 +3,7 @@
 ## Unreleased
 
 - Harden GitHub Actions validation with pinned Python 3.12, read-only contents permission, a job timeout, domain-data validation, and generated-output drift detection.
-- Add domain validation for station source rows, cross-file station references, egress coordinate sanity, generated door bounds, and representative split-level station cases.
+- Add domain validation for station source rows, cross-file station references, embedded station inventory, and representative split-level station cases.
 - Document validation workflow and source-material licensing boundaries.
 - Expand issue-template contact links.
 
