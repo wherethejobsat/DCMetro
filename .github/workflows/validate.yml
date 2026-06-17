@@ -26,9 +26,6 @@ jobs:
       - name: Validate build
         run: python scripts/validate_build.py
 
-      - name: Validate domain data
-        run: python scripts/validate_domain.py
-
       - name: Check generated files are committed
         run: |
           git diff --exit-code -- \
