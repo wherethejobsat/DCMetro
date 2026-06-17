@@ -52,6 +52,13 @@ Validate:
 
 ```sh
 python scripts/validate_build.py
+python scripts/validate_domain.py
+```
+
+Confirm generated files are committed after a build:
+
+```sh
+git diff --exit-code -- docs/index.html docs/app.js docs/sw.js docs/manifest.webmanifest docs/social-preview.svg docs/icons/icon-192.svg docs/icons/icon-512.svg
 ```
 
 Serve locally:
@@ -70,4 +77,4 @@ Station corrections, data fixes, and small UX improvements are welcome. For stat
 
 ## License
 
-Code is licensed under the [MIT License](LICENSE). Code license and underlying data/source-material rights may differ; see [DATA_PROVENANCE.md](DATA_PROVENANCE.md).
+Code is licensed under the [MIT License](LICENSE). The MIT license applies to original code in this repository; source data, reference PDFs, station geometry, and other source material may be governed by separate terms. See [DATA_PROVENANCE.md](DATA_PROVENANCE.md).
