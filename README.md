@@ -27,7 +27,7 @@ The 2025 Metro Station Platform Exit Guide is useful, but a phone on a platform 
 
 ## Data and attribution
 
-This project uses 2025 Metro Station Platform Exit Guide/source data from the files in this repo. See [DATA_PROVENANCE.md](DATA_PROVENANCE.md) for what is source material, what is generated, and what is hand-maintained.
+This project uses 2025 Metro Station Platform Exit Guide/source data from the files in this repo. See [DATA_PROVENANCE.md](DATA_PROVENANCE.md) for what is source material, what is generated, and what is hand-maintained. See [CHANGELOG.md](CHANGELOG.md) for data and release changes.
 
 Not affiliated with, endorsed by, or maintained by WMATA. Station conditions can change.
 
