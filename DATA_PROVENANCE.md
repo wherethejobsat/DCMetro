@@ -24,7 +24,12 @@ The repo also includes source/reference PDFs named `WMATA Metro Station Platform
 - `docs/icons/icon-192.svg`
 - `docs/icons/icon-512.svg`
 
-The embedded JSON in `docs/index.html` is generated from the CSV source files. It is optimized for station lookup and nearest-door display.
+The embedded JSON in `docs/index.html` is generated from the CSV source files. It is optimized for station lookup and nearest-door display. CI rebuilds these files and fails if the committed generated output differs from the source build output.
+
+## Validation
+
+- `scripts/validate_build.py` checks required files, required columns, embedded app data, and WMATA station-code coverage.
+- `scripts/validate_domain.py` checks station source rows, active line coverage, direction labels, cross-file station references, egress coordinate sanity, generated door bounds, split-level station cases, and representative station-code/line regressions.
 
 ## Hand-maintained files
 
@@ -33,6 +38,7 @@ Based on the current repo layout, these files are hand-maintained:
 - The root CSV source files and reference PDFs.
 - `scripts/build_site.py`
 - `scripts/validate_build.py`
+- `scripts/validate_domain.py`
 - `README.md`
 - `DATA_PROVENANCE.md`
 - `LICENSE`
