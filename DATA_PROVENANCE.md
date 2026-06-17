@@ -29,7 +29,7 @@ The embedded JSON in `docs/index.html` is generated from the CSV source files. I
 ## Validation
 
 - `scripts/validate_build.py` checks required files, required columns, embedded app data, and WMATA station-code coverage.
-- `scripts/validate_domain.py` checks station source rows, active line coverage, direction labels, cross-file station references, egress coordinate sanity, generated door bounds, split-level station cases, and representative station-code/line regressions.
+- `scripts/validate_domain.py` checks station source rows, active line coverage, direction labels, cross-file station references, embedded station inventory, split-level station cases, and representative station-code/line regressions.
 
 ## Hand-maintained files
 
