@@ -4,8 +4,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#111722">
+  <meta name="description" content="A fast, offline-friendly DC Metro exit guide that shows the train car and door closest to station exits.">
+  <meta property="og:title" content="DC Metro Exit Guide">
+  <meta property="og:description" content="Find the right car and door before you board. Works offline after first load.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://wherethejobsat.github.io/DCMetro/">
+  <meta property="og:image" content="https://wherethejobsat.github.io/DCMetro/social-preview.svg">
+  <meta name="twitter:card" content="summary_large_image">
   <link rel="manifest" href="./manifest.webmanifest">
-  <title>Metro Exit Guide</title>
+  <title>DC Metro Exit Guide</title>
   <style>
     :root {
       --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -150,6 +157,30 @@
       border-bottom: none;
     }
 
+    .quick-examples {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .example-btn {
+      width: auto;
+      min-height: 40px;
+      padding: 8px 10px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      border-color: var(--border);
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .helper {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+
     .tags {
       display: flex;
       flex-wrap: wrap;
@@ -184,6 +215,26 @@
       border: none;
       font-weight: 700;
       cursor: pointer;
+    }
+
+    .copy-wrap {
+      display: grid;
+      gap: 6px;
+    }
+
+    .copy-feedback {
+      min-height: 1.2em;
+      color: var(--muted);
+      font-size: 0.85rem;
+      text-align: right;
+    }
+
+    .notice {
+      margin: 0 0 14px;
+      color: var(--muted);
+      font-size: 0.88rem;
+      border-left: 3px solid var(--accent-warm);
+      padding-left: 10px;
     }
 
     .egress-block {
@@ -227,6 +278,10 @@
       line-height: 1.5;
     }
 
+    .about a {
+      color: var(--accent);
+    }
+
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(8px); }
       to { opacity: 1; transform: translateY(0); }
@@ -253,8 +308,8 @@
 </head>
 <body>
   <header>
-    <h1>Metro Exit Guide</h1>
-    <p>Pick a station, line, and direction to see the closest doors.</p>
+    <h1>DC Metro Exit Guide</h1>
+    <p>Pick a station, line, and direction to see the closest car and door.</p>
   </header>
   <main>
     <section class="card">
@@ -265,6 +320,12 @@
           <button id="clearStation" type="button">Clear</button>
         </div>
         <div id="stationSuggestions" class="suggestions" hidden></div>
+        <p class="helper">Try one:</p>
+        <div class="quick-examples" aria-label="Example stations">
+          <button class="example-btn" type="button" data-station-example="Metro Center">Metro Center</button>
+          <button class="example-btn" type="button" data-station-example="Gallery Place">Gallery Place</button>
+          <button class="example-btn" type="button" data-station-example="L'Enfant Plaza">L'Enfant Plaza</button>
+        </div>
       </div>
       <div class="field">
         <label for="lineSelect">Line</label>
@@ -274,6 +335,7 @@
       <div class="field">
         <label for="directionSelect">Direction</label>
         <select id="directionSelect" disabled></select>
+        <p id="platformNote" class="helper" hidden></p>
       </div>
     </section>
 
@@ -283,7 +345,10 @@
           <div id="resultsTitle" class="meta">Select a station to see results.</div>
           <div id="resultsSub" class="meta"></div>
         </div>
-        <button id="copyBtn" class="copy-btn" type="button" disabled>Copy</button>
+        <div class="copy-wrap">
+          <button id="copyBtn" class="copy-btn" type="button" disabled>Copy</button>
+          <div id="copyFeedback" class="copy-feedback" aria-live="polite"></div>
+        </div>
       </div>
       <div id="results"></div>
     </section>
@@ -291,8 +356,10 @@
     <section class="card">
       <h2>About</h2>
       <p class="about">
-        Data source: WMATA Metro Station Platform Exit Guide (2025). Not affiliated with WMATA.
-        Works offline after the first load.
+        Uses the 2025 Metro Station Platform Exit Guide data. Works offline after first load.
+        No account, no ads, no tracking. Not affiliated with, endorsed by, or maintained by WMATA.
+        <a href="https://github.com/wherethejobsat/DCMetro">Source on GitHub</a>.
+        <a href="https://github.com/wherethejobsat/DCMetro/issues/new">Report a station correction</a>.
       </p>
     </section>
   </main>

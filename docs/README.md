@@ -1,4 +1,4 @@
-# Metro Exit Guide (static PWA)
+# DC Metro Exit Guide (static PWA)
 
 ## Public URL
 
@@ -7,6 +7,9 @@ Live app: https://wherethejobsat.github.io/DCMetro/
 This repo is configured to publish the static app from `docs/` with GitHub
 Pages. If the repository is public, GitHub visitors can also find this link at
 the top of the root README.
+
+No Node toolchain or Python package install step is needed for the current
+build.
 
 ## Local build and serve
 

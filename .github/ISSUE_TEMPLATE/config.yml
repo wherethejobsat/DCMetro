@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Open the live app
+    url: https://wherethejobsat.github.io/DCMetro/
+    about: Use the public DC Metro Exit Guide.

@@ -1,4 +1,4 @@
-const CACHE_VERSION = "a0648726d3";
+const CACHE_VERSION = "a82f9c57d8";
 const CACHE_NAME = `metro-exit-${CACHE_VERSION}`;
 const ASSETS = [
   "./",
@@ -6,6 +6,7 @@ const ASSETS = [
   "./app.js",
   "./manifest.webmanifest",
   "./sw.js",
+  "./social-preview.svg",
   "./icons/icon-192.svg",
   "./icons/icon-512.svg",
 ];

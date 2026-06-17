@@ -190,8 +190,15 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   <meta charset=\"utf-8\">
   <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
   <meta name=\"theme-color\" content=\"#111722\">
+  <meta name=\"description\" content=\"A fast, offline-friendly DC Metro exit guide that shows the train car and door closest to station exits.\">
+  <meta property=\"og:title\" content=\"DC Metro Exit Guide\">
+  <meta property=\"og:description\" content=\"Find the right car and door before you board. Works offline after first load.\">
+  <meta property=\"og:type\" content=\"website\">
+  <meta property=\"og:url\" content=\"https://wherethejobsat.github.io/DCMetro/\">
+  <meta property=\"og:image\" content=\"https://wherethejobsat.github.io/DCMetro/social-preview.svg\">
+  <meta name=\"twitter:card\" content=\"summary_large_image\">
   <link rel=\"manifest\" href=\"./manifest.webmanifest\">
-  <title>Metro Exit Guide</title>
+  <title>DC Metro Exit Guide</title>
   <style>
     :root {
       --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -336,6 +343,30 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       border-bottom: none;
     }
 
+    .quick-examples {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .example-btn {
+      width: auto;
+      min-height: 40px;
+      padding: 8px 10px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      border-color: var(--border);
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .helper {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+
     .tags {
       display: flex;
       flex-wrap: wrap;
@@ -370,6 +401,26 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       border: none;
       font-weight: 700;
       cursor: pointer;
+    }
+
+    .copy-wrap {
+      display: grid;
+      gap: 6px;
+    }
+
+    .copy-feedback {
+      min-height: 1.2em;
+      color: var(--muted);
+      font-size: 0.85rem;
+      text-align: right;
+    }
+
+    .notice {
+      margin: 0 0 14px;
+      color: var(--muted);
+      font-size: 0.88rem;
+      border-left: 3px solid var(--accent-warm);
+      padding-left: 10px;
     }
 
     .egress-block {
@@ -413,6 +464,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       line-height: 1.5;
     }
 
+    .about a {
+      color: var(--accent);
+    }
+
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(8px); }
       to { opacity: 1; transform: translateY(0); }
@@ -439,8 +494,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 </head>
 <body>
   <header>
-    <h1>Metro Exit Guide</h1>
-    <p>Pick a station, line, and direction to see the closest doors.</p>
+    <h1>DC Metro Exit Guide</h1>
+    <p>Pick a station, line, and direction to see the closest car and door.</p>
   </header>
   <main>
     <section class=\"card\">
@@ -451,6 +506,12 @@ HTML_TEMPLATE = """<!DOCTYPE html>
           <button id=\"clearStation\" type=\"button\">Clear</button>
         </div>
         <div id=\"stationSuggestions\" class=\"suggestions\" hidden></div>
+        <p class=\"helper\">Try one:</p>
+        <div class=\"quick-examples\" aria-label=\"Example stations\">
+          <button class=\"example-btn\" type=\"button\" data-station-example=\"Metro Center\">Metro Center</button>
+          <button class=\"example-btn\" type=\"button\" data-station-example=\"Gallery Place\">Gallery Place</button>
+          <button class=\"example-btn\" type=\"button\" data-station-example=\"L'Enfant Plaza\">L'Enfant Plaza</button>
+        </div>
       </div>
       <div class=\"field\">
         <label for=\"lineSelect\">Line</label>
@@ -460,6 +521,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       <div class=\"field\">
         <label for=\"directionSelect\">Direction</label>
         <select id=\"directionSelect\" disabled></select>
+        <p id=\"platformNote\" class=\"helper\" hidden></p>
       </div>
     </section>
 
@@ -469,7 +531,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
           <div id=\"resultsTitle\" class=\"meta\">Select a station to see results.</div>
           <div id=\"resultsSub\" class=\"meta\"></div>
         </div>
-        <button id=\"copyBtn\" class=\"copy-btn\" type=\"button\" disabled>Copy</button>
+        <div class=\"copy-wrap\">
+          <button id=\"copyBtn\" class=\"copy-btn\" type=\"button\" disabled>Copy</button>
+          <div id=\"copyFeedback\" class=\"copy-feedback\" aria-live=\"polite\"></div>
+        </div>
       </div>
       <div id=\"results\"></div>
     </section>
@@ -477,8 +542,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     <section class=\"card\">
       <h2>About</h2>
       <p class=\"about\">
-        Data source: WMATA Metro Station Platform Exit Guide (2025). Not affiliated with WMATA.
-        Works offline after the first load.
+        Uses the 2025 Metro Station Platform Exit Guide data. Works offline after first load.
+        No account, no ads, no tracking. Not affiliated with, endorsed by, or maintained by WMATA.
+        <a href=\"https://github.com/wherethejobsat/DCMetro\">Source on GitHub</a>.
+        <a href=\"https://github.com/wherethejobsat/DCMetro/issues/new\">Report a station correction</a>.
       </p>
     </section>
   </main>
@@ -495,9 +562,16 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     const resultsTitle = document.getElementById("resultsTitle");
     const resultsSub = document.getElementById("resultsSub");
     const copyBtn = document.getElementById("copyBtn");
+    const copyFeedback = document.getElementById("copyFeedback");
     const lineTags = document.getElementById("lineTags");
+    const platformNote = document.getElementById("platformNote");
+    const exampleButtons = document.querySelectorAll("[data-station-example]");
 
-    const normalize = (value) => value
+    let selectedStation = null;
+    let copyFeedbackTimer = null;
+    const SHARED_PLATFORM_NOTE = "At shared-platform stations, recommendations are based on platform direction; changing line may not change the result.";
+
+    const normalize = (value) => String(value || "")
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, " ")
       .trim();
@@ -518,8 +592,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       };
     });
 
-    let selectedStation = null;
-
     const lineName = (code) => (DATA.lines[code] ? DATA.lines[code].name : code);
 
     const levelLineHint = (station) => {
@@ -527,6 +599,74 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         return "";
       }
       return ` [${station.lines.map(lineName).join(", ")}]`;
+    };
+
+    const baseStationName = (station) => station.name.replace(/ \\((Lower|Upper) Level\\)$/, "");
+
+    const findLineCode = (station, value) => {
+      const requested = normalize(value);
+      if (!station || !requested) {
+        return "";
+      }
+      return station.lines.find((code) => (
+        normalize(code) === requested || normalize(lineName(code)) === requested
+      )) || "";
+    };
+
+    const findDirectionKey = (station, value) => {
+      const requested = normalize(value);
+      if (!station || !requested) {
+        return "";
+      }
+      const match = station.directions.find((dir) => (
+        normalize(dir.key) === requested ||
+        normalize(dir.label) === requested ||
+        normalize(dir.label.replace(/^Toward\\s+/i, "")) === requested
+      ));
+      return match ? match.key : "";
+    };
+
+    const stationMatchScore = (station, value) => {
+      const requested = normalize(value);
+      if (!requested) {
+        return 0;
+      }
+      const aliases = [
+        { value: station.name, score: 6 },
+        { value: station.station_code, score: 6 },
+        { value: baseStationName(station), score: 5 },
+        { value: station.alt, score: 4 },
+        { value: station.subtitle, score: 3 },
+      ];
+      const exact = aliases.find((alias) => normalize(alias.value) === requested);
+      if (exact) {
+        return exact.score;
+      }
+      if (station.search.includes(requested)) {
+        return 1;
+      }
+      return 0;
+    };
+
+    const findStationByParam = (stationValue, lineValue) => {
+      const matches = stations
+        .map((station) => ({ station, score: stationMatchScore(station, stationValue) }))
+        .filter((entry) => entry.score > 0);
+      if (!matches.length) {
+        return null;
+      }
+
+      const lineMatches = lineValue
+        ? matches.filter((entry) => findLineCode(entry.station, lineValue))
+        : [];
+      const candidates = lineMatches.length ? lineMatches : matches;
+      candidates.sort((a, b) => {
+        if (b.score !== a.score) {
+          return b.score - a.score;
+        }
+        return a.station.name.localeCompare(b.station.name);
+      });
+      return candidates[0].station;
     };
 
     const renderLineTags = (station) => {
@@ -613,13 +753,49 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       });
     };
 
-    const renderSelectors = () => {
+    const hasSharedPlatformLineChoice = (station) => {
+      return Boolean(station && station.lines.length > 1);
+    };
+
+    const directionOptionsForLine = (station, lineCode) => {
+      // The source data gives platform direction geometry. At shared-platform
+      // stations, a selected line labels the trip, but it does not create a
+      // separate line-specific door recommendation.
+      const sharedPlatform = hasSharedPlatformLineChoice(station);
+      return station.directions.map((dir) => ({
+        value: dir.key,
+        label: sharedPlatform ? `${dir.label} (platform direction)` : dir.label,
+      }));
+    };
+
+    const renderPlatformNote = () => {
+      if (!hasSharedPlatformLineChoice(selectedStation)) {
+        platformNote.textContent = "";
+        platformNote.hidden = true;
+        return;
+      }
+      platformNote.textContent = SHARED_PLATFORM_NOTE;
+      platformNote.hidden = false;
+    };
+
+    const renderDirectionSelector = (preferredDirection) => {
+      const lineCode = lineSelect.value || selectedStation.lines[0] || "";
+      const dirOptions = directionOptionsForLine(selectedStation, lineCode);
+      fillSelect(directionSelect, dirOptions, "Select a direction");
+      directionSelect.disabled = false;
+      const requestedDirection = findDirectionKey(selectedStation, preferredDirection);
+      directionSelect.value = requestedDirection || (dirOptions.length ? dirOptions[0].value : "");
+      renderPlatformNote();
+    };
+
+    const renderSelectors = (preferredLine, preferredDirection) => {
       if (!selectedStation) {
         lineSelect.disabled = true;
         directionSelect.disabled = true;
         fillSelect(lineSelect, [], "Select a station first");
         fillSelect(directionSelect, [], "Select a station first");
         renderLineTags(null);
+        renderPlatformNote();
         return;
       }
 
@@ -630,15 +806,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
       fillSelect(lineSelect, lineOptions, "Select a line");
       lineSelect.disabled = false;
-      lineSelect.value = lineOptions.length ? lineOptions[0].value : "";
+      const requestedLine = findLineCode(selectedStation, preferredLine);
+      lineSelect.value = requestedLine || (lineOptions.length ? lineOptions[0].value : "");
 
-      const dirOptions = selectedStation.directions.map((dir) => ({
-        value: dir.key,
-        label: dir.label,
-      }));
-      fillSelect(directionSelect, dirOptions, "Select a direction");
-      directionSelect.disabled = false;
-      directionSelect.value = dirOptions.length ? dirOptions[0].value : "";
+      renderDirectionSelector(preferredDirection);
 
       renderLineTags(selectedStation);
     };
@@ -687,14 +858,57 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       return wrapper;
     };
 
-    const renderResults = () => {
+    const clearCopyFeedback = () => {
+      if (copyFeedbackTimer) {
+        window.clearTimeout(copyFeedbackTimer);
+        copyFeedbackTimer = null;
+      }
+      copyFeedback.textContent = "";
+    };
+
+    const showCopyFeedback = (message) => {
+      copyFeedback.textContent = message;
+      if (copyFeedbackTimer) {
+        window.clearTimeout(copyFeedbackTimer);
+      }
+      copyFeedbackTimer = window.setTimeout(() => {
+        copyFeedback.textContent = "";
+        copyFeedbackTimer = null;
+      }, 2500);
+    };
+
+    const updateUrlFromSelection = () => {
+      if (!window.history || !window.history.replaceState) {
+        return;
+      }
+      const params = new URLSearchParams();
+      if (selectedStation) {
+        params.set("station", selectedStation.name);
+        if (lineSelect.value) {
+          params.set("line", lineSelect.value);
+        }
+        if (directionSelect.value) {
+          params.set("direction", directionSelect.value);
+        }
+      }
+      const query = params.toString();
+      const nextUrl = `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`;
+      window.history.replaceState(null, "", nextUrl);
+    };
+
+    const renderResults = (options = {}) => {
+      const shouldUpdateUrl = options.updateUrl !== false;
       results.innerHTML = "";
       results.classList.remove("animate");
+      clearCopyFeedback();
 
       if (!selectedStation) {
         resultsTitle.textContent = "Select a station to see results.";
         resultsSub.textContent = "";
         copyBtn.disabled = true;
+        if (shouldUpdateUrl) {
+          updateUrlFromSelection();
+        }
         return;
       }
 
@@ -739,14 +953,21 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       });
 
       results.classList.add("animate");
+      if (shouldUpdateUrl) {
+        updateUrlFromSelection();
+      }
     };
 
-    const selectStation = (station) => {
+    const selectStation = (station, options = {}) => {
+      if (!station) {
+        return false;
+      }
       selectedStation = station;
       stationInput.value = station.name;
       stationSuggestions.hidden = true;
-      renderSelectors();
-      renderResults();
+      renderSelectors(options.line, options.direction);
+      renderResults({ updateUrl: options.updateUrl !== false });
+      return true;
     };
 
     stationInput.addEventListener("input", (event) => {
@@ -776,12 +997,26 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       renderResults();
     });
 
-    lineSelect.addEventListener("change", renderResults);
-    directionSelect.addEventListener("change", renderResults);
+    lineSelect.addEventListener("change", () => {
+      renderDirectionSelector(directionSelect.value);
+      renderResults();
+    });
+    directionSelect.addEventListener("change", () => {
+      renderResults();
+    });
 
-    copyBtn.addEventListener("click", () => {
+    exampleButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        const station = findStationByParam(button.dataset.stationExample || "", "");
+        if (station) {
+          selectStation(station);
+        }
+      });
+    });
+
+    const buildCopyPayload = () => {
       if (!selectedStation) {
-        return;
+        return "";
       }
       const lineCode = lineSelect.value || selectedStation.lines[0];
       const directionKey = directionSelect.value || selectedStation.directions[0].key;
@@ -818,9 +1053,23 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         lines.push("");
       });
 
-      const payload = lines.join("\\n");
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(payload).catch(() => {});
+      return lines.join("\\n");
+    };
+
+    copyBtn.addEventListener("click", async () => {
+      const payload = buildCopyPayload();
+      if (!payload) {
+        return;
+      }
+      if (!navigator.clipboard || !navigator.clipboard.writeText) {
+        showCopyFeedback("Copy failed; select and copy the text manually.");
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(payload);
+        showCopyFeedback("Copied.");
+      } catch (error) {
+        showCopyFeedback("Copy failed; select and copy the text manually.");
       }
     });
 
@@ -843,8 +1092,28 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       });
     }
 
-    renderSelectors();
-    renderResults();
+    const initFromUrl = () => {
+      const params = new URLSearchParams(window.location.search);
+      const stationParam = params.get("station");
+      if (!stationParam) {
+        return false;
+      }
+      const lineParam = params.get("line");
+      const station = findStationByParam(stationParam, lineParam);
+      if (!station) {
+        return false;
+      }
+      return selectStation(station, {
+        line: lineParam,
+        direction: params.get("direction"),
+        updateUrl: true,
+      });
+    };
+
+    if (!initFromUrl()) {
+      renderSelectors();
+      renderResults({ updateUrl: false });
+    }
   </script>
 </body>
 </html>
@@ -858,6 +1127,7 @@ const ASSETS = [
   "./app.js",
   "./manifest.webmanifest",
   "./sw.js",
+  "./social-preview.svg",
   "./icons/icon-192.svg",
   "./icons/icon-512.svg",
 ];
@@ -892,8 +1162,8 @@ self.addEventListener("fetch", (event) => {
 """
 
 MANIFEST_TEMPLATE = """{
-  "name": "Metro Exit Guide",
-  "short_name": "Exit Guide",
+  "name": "DC Metro Exit Guide",
+  "short_name": "DC Exit Guide",
   "start_url": ".",
   "display": "standalone",
   "background_color": "#111722",
@@ -926,6 +1196,30 @@ ICON_512 = """<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"512\" height=\"5
   <rect x=\"80\" y=\"96\" width=\"352\" height=\"320\" rx=\"56\" fill=\"#182131\"/>
   <path d=\"M144 330l88-132 76 84 82-108 74 156H144z\" fill=\"#e0a15f\"/>
   <circle cx=\"170\" cy=\"188\" r=\"26\" fill=\"#8fb9dc\"/>
+</svg>
+"""
+
+SOCIAL_PREVIEW = """<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1200\" height=\"630\" viewBox=\"0 0 1200 630\" role=\"img\" aria-labelledby=\"title desc\">
+  <title id=\"title\">DC Metro Exit Guide</title>
+  <desc id=\"desc\">Preview card showing station, line, direction, and a car-door result.</desc>
+  <rect width=\"1200\" height=\"630\" fill=\"#111722\"/>
+  <path d=\"M0 126H1200M0 252H1200M0 378H1200M0 504H1200\" stroke=\"#223149\" stroke-width=\"2\"/>
+  <path d=\"M120 0V630M240 0V630M360 0V630M480 0V630M600 0V630M720 0V630M840 0V630M960 0V630M1080 0V630\" stroke=\"#1b2638\" stroke-width=\"2\"/>
+  <rect x=\"86\" y=\"76\" width=\"1028\" height=\"478\" rx=\"28\" fill=\"#182131\" stroke=\"#334155\" stroke-width=\"3\"/>
+  <text x=\"126\" y=\"158\" fill=\"#f3efe6\" font-family=\"Arial, Helvetica, sans-serif\" font-size=\"64\" font-weight=\"700\">DC Metro Exit Guide</text>
+  <text x=\"128\" y=\"214\" fill=\"#b9c0cc\" font-family=\"Arial, Helvetica, sans-serif\" font-size=\"30\">Find the right car and door before you board</text>
+  <g transform=\"translate(128 278)\">
+    <rect width=\"944\" height=\"166\" rx=\"18\" fill=\"#202a3b\" stroke=\"#41516a\" stroke-width=\"2\"/>
+    <text x=\"34\" y=\"54\" fill=\"#8fb9dc\" font-family=\"Arial, Helvetica, sans-serif\" font-size=\"28\" font-weight=\"700\">Station</text>
+    <text x=\"34\" y=\"102\" fill=\"#f3efe6\" font-family=\"Arial, Helvetica, sans-serif\" font-size=\"40\">Metro Center</text>
+    <circle cx=\"402\" cy=\"82\" r=\"28\" fill=\"#c60c30\"/>
+    <text x=\"402\" y=\"94\" text-anchor=\"middle\" fill=\"#ffffff\" font-family=\"Arial, Helvetica, sans-serif\" font-size=\"28\" font-weight=\"700\">RD</text>
+    <text x=\"460\" y=\"72\" fill=\"#b9c0cc\" font-family=\"Arial, Helvetica, sans-serif\" font-size=\"25\">Toward Shady Grove</text>
+    <text x=\"460\" y=\"112\" fill=\"#f3efe6\" font-family=\"Arial, Helvetica, sans-serif\" font-size=\"32\">Car 4, Door 2</text>
+    <rect x=\"716\" y=\"42\" width=\"190\" height=\"80\" rx=\"14\" fill=\"#e0a15f\"/>
+    <text x=\"811\" y=\"92\" text-anchor=\"middle\" fill=\"#111722\" font-family=\"Arial, Helvetica, sans-serif\" font-size=\"28\" font-weight=\"700\">Door 11</text>
+  </g>
+  <text x=\"128\" y=\"505\" fill=\"#b9c0cc\" font-family=\"Arial, Helvetica, sans-serif\" font-size=\"24\">Offline after first load. No account. No ads. No tracking.</text>
 </svg>
 """
 
@@ -1288,7 +1582,7 @@ def write_file(path, content):
 
 def build_site():
     data, data_json = build_data()
-    cache_seed = data_json + HTML_TEMPLATE
+    cache_seed = data_json + HTML_TEMPLATE + SW_TEMPLATE + MANIFEST_TEMPLATE + SOCIAL_PREVIEW
     cache_version = hashlib.sha1(cache_seed.encode("ascii")).hexdigest()[:10]
 
     DOCS_DIR.mkdir(parents=True, exist_ok=True)
@@ -1314,6 +1608,7 @@ def build_site():
     write_file(DOCS_DIR / "sw.js", sw_js)
 
     write_file(DOCS_DIR / "manifest.webmanifest", MANIFEST_TEMPLATE)
+    write_file(DOCS_DIR / "social-preview.svg", SOCIAL_PREVIEW)
     write_file(ICONS_DIR / "icon-192.svg", ICON_192)
     write_file(ICONS_DIR / "icon-512.svg", ICON_512)
 

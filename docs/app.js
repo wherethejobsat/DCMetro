@@ -8,9 +8,16 @@ const DATA = JSON.parse(document.getElementById("app-data").textContent);
     const resultsTitle = document.getElementById("resultsTitle");
     const resultsSub = document.getElementById("resultsSub");
     const copyBtn = document.getElementById("copyBtn");
+    const copyFeedback = document.getElementById("copyFeedback");
     const lineTags = document.getElementById("lineTags");
+    const platformNote = document.getElementById("platformNote");
+    const exampleButtons = document.querySelectorAll("[data-station-example]");
 
-    const normalize = (value) => value
+    let selectedStation = null;
+    let copyFeedbackTimer = null;
+    const SHARED_PLATFORM_NOTE = "At shared-platform stations, recommendations are based on platform direction; changing line may not change the result.";
+
+    const normalize = (value) => String(value || "")
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, " ")
       .trim();
@@ -31,8 +38,6 @@ const DATA = JSON.parse(document.getElementById("app-data").textContent);
       };
     });
 
-    let selectedStation = null;
-
     const lineName = (code) => (DATA.lines[code] ? DATA.lines[code].name : code);
 
     const levelLineHint = (station) => {
@@ -40,6 +45,74 @@ const DATA = JSON.parse(document.getElementById("app-data").textContent);
         return "";
       }
       return ` [${station.lines.map(lineName).join(", ")}]`;
+    };
+
+    const baseStationName = (station) => station.name.replace(/ \((Lower|Upper) Level\)$/, "");
+
+    const findLineCode = (station, value) => {
+      const requested = normalize(value);
+      if (!station || !requested) {
+        return "";
+      }
+      return station.lines.find((code) => (
+        normalize(code) === requested || normalize(lineName(code)) === requested
+      )) || "";
+    };
+
+    const findDirectionKey = (station, value) => {
+      const requested = normalize(value);
+      if (!station || !requested) {
+        return "";
+      }
+      const match = station.directions.find((dir) => (
+        normalize(dir.key) === requested ||
+        normalize(dir.label) === requested ||
+        normalize(dir.label.replace(/^Toward\s+/i, "")) === requested
+      ));
+      return match ? match.key : "";
+    };
+
+    const stationMatchScore = (station, value) => {
+      const requested = normalize(value);
+      if (!requested) {
+        return 0;
+      }
+      const aliases = [
+        { value: station.name, score: 6 },
+        { value: station.station_code, score: 6 },
+        { value: baseStationName(station), score: 5 },
+        { value: station.alt, score: 4 },
+        { value: station.subtitle, score: 3 },
+      ];
+      const exact = aliases.find((alias) => normalize(alias.value) === requested);
+      if (exact) {
+        return exact.score;
+      }
+      if (station.search.includes(requested)) {
+        return 1;
+      }
+      return 0;
+    };
+
+    const findStationByParam = (stationValue, lineValue) => {
+      const matches = stations
+        .map((station) => ({ station, score: stationMatchScore(station, stationValue) }))
+        .filter((entry) => entry.score > 0);
+      if (!matches.length) {
+        return null;
+      }
+
+      const lineMatches = lineValue
+        ? matches.filter((entry) => findLineCode(entry.station, lineValue))
+        : [];
+      const candidates = lineMatches.length ? lineMatches : matches;
+      candidates.sort((a, b) => {
+        if (b.score !== a.score) {
+          return b.score - a.score;
+        }
+        return a.station.name.localeCompare(b.station.name);
+      });
+      return candidates[0].station;
     };
 
     const renderLineTags = (station) => {
@@ -126,13 +199,49 @@ const DATA = JSON.parse(document.getElementById("app-data").textContent);
       });
     };
 
-    const renderSelectors = () => {
+    const hasSharedPlatformLineChoice = (station) => {
+      return Boolean(station && station.lines.length > 1);
+    };
+
+    const directionOptionsForLine = (station, lineCode) => {
+      // The source data gives platform direction geometry. At shared-platform
+      // stations, a selected line labels the trip, but it does not create a
+      // separate line-specific door recommendation.
+      const sharedPlatform = hasSharedPlatformLineChoice(station);
+      return station.directions.map((dir) => ({
+        value: dir.key,
+        label: sharedPlatform ? `${dir.label} (platform direction)` : dir.label,
+      }));
+    };
+
+    const renderPlatformNote = () => {
+      if (!hasSharedPlatformLineChoice(selectedStation)) {
+        platformNote.textContent = "";
+        platformNote.hidden = true;
+        return;
+      }
+      platformNote.textContent = SHARED_PLATFORM_NOTE;
+      platformNote.hidden = false;
+    };
+
+    const renderDirectionSelector = (preferredDirection) => {
+      const lineCode = lineSelect.value || selectedStation.lines[0] || "";
+      const dirOptions = directionOptionsForLine(selectedStation, lineCode);
+      fillSelect(directionSelect, dirOptions, "Select a direction");
+      directionSelect.disabled = false;
+      const requestedDirection = findDirectionKey(selectedStation, preferredDirection);
+      directionSelect.value = requestedDirection || (dirOptions.length ? dirOptions[0].value : "");
+      renderPlatformNote();
+    };
+
+    const renderSelectors = (preferredLine, preferredDirection) => {
       if (!selectedStation) {
         lineSelect.disabled = true;
         directionSelect.disabled = true;
         fillSelect(lineSelect, [], "Select a station first");
         fillSelect(directionSelect, [], "Select a station first");
         renderLineTags(null);
+        renderPlatformNote();
         return;
       }
 
@@ -143,15 +252,10 @@ const DATA = JSON.parse(document.getElementById("app-data").textContent);
 
       fillSelect(lineSelect, lineOptions, "Select a line");
       lineSelect.disabled = false;
-      lineSelect.value = lineOptions.length ? lineOptions[0].value : "";
+      const requestedLine = findLineCode(selectedStation, preferredLine);
+      lineSelect.value = requestedLine || (lineOptions.length ? lineOptions[0].value : "");
 
-      const dirOptions = selectedStation.directions.map((dir) => ({
-        value: dir.key,
-        label: dir.label,
-      }));
-      fillSelect(directionSelect, dirOptions, "Select a direction");
-      directionSelect.disabled = false;
-      directionSelect.value = dirOptions.length ? dirOptions[0].value : "";
+      renderDirectionSelector(preferredDirection);
 
       renderLineTags(selectedStation);
     };
@@ -200,14 +304,57 @@ const DATA = JSON.parse(document.getElementById("app-data").textContent);
       return wrapper;
     };
 
-    const renderResults = () => {
+    const clearCopyFeedback = () => {
+      if (copyFeedbackTimer) {
+        window.clearTimeout(copyFeedbackTimer);
+        copyFeedbackTimer = null;
+      }
+      copyFeedback.textContent = "";
+    };
+
+    const showCopyFeedback = (message) => {
+      copyFeedback.textContent = message;
+      if (copyFeedbackTimer) {
+        window.clearTimeout(copyFeedbackTimer);
+      }
+      copyFeedbackTimer = window.setTimeout(() => {
+        copyFeedback.textContent = "";
+        copyFeedbackTimer = null;
+      }, 2500);
+    };
+
+    const updateUrlFromSelection = () => {
+      if (!window.history || !window.history.replaceState) {
+        return;
+      }
+      const params = new URLSearchParams();
+      if (selectedStation) {
+        params.set("station", selectedStation.name);
+        if (lineSelect.value) {
+          params.set("line", lineSelect.value);
+        }
+        if (directionSelect.value) {
+          params.set("direction", directionSelect.value);
+        }
+      }
+      const query = params.toString();
+      const nextUrl = `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`;
+      window.history.replaceState(null, "", nextUrl);
+    };
+
+    const renderResults = (options = {}) => {
+      const shouldUpdateUrl = options.updateUrl !== false;
       results.innerHTML = "";
       results.classList.remove("animate");
+      clearCopyFeedback();
 
       if (!selectedStation) {
         resultsTitle.textContent = "Select a station to see results.";
         resultsSub.textContent = "";
         copyBtn.disabled = true;
+        if (shouldUpdateUrl) {
+          updateUrlFromSelection();
+        }
         return;
       }
 
@@ -252,14 +399,21 @@ const DATA = JSON.parse(document.getElementById("app-data").textContent);
       });
 
       results.classList.add("animate");
+      if (shouldUpdateUrl) {
+        updateUrlFromSelection();
+      }
     };
 
-    const selectStation = (station) => {
+    const selectStation = (station, options = {}) => {
+      if (!station) {
+        return false;
+      }
       selectedStation = station;
       stationInput.value = station.name;
       stationSuggestions.hidden = true;
-      renderSelectors();
-      renderResults();
+      renderSelectors(options.line, options.direction);
+      renderResults({ updateUrl: options.updateUrl !== false });
+      return true;
     };
 
     stationInput.addEventListener("input", (event) => {
@@ -289,12 +443,26 @@ const DATA = JSON.parse(document.getElementById("app-data").textContent);
       renderResults();
     });
 
-    lineSelect.addEventListener("change", renderResults);
-    directionSelect.addEventListener("change", renderResults);
+    lineSelect.addEventListener("change", () => {
+      renderDirectionSelector(directionSelect.value);
+      renderResults();
+    });
+    directionSelect.addEventListener("change", () => {
+      renderResults();
+    });
 
-    copyBtn.addEventListener("click", () => {
+    exampleButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        const station = findStationByParam(button.dataset.stationExample || "", "");
+        if (station) {
+          selectStation(station);
+        }
+      });
+    });
+
+    const buildCopyPayload = () => {
       if (!selectedStation) {
-        return;
+        return "";
       }
       const lineCode = lineSelect.value || selectedStation.lines[0];
       const directionKey = directionSelect.value || selectedStation.directions[0].key;
@@ -331,9 +499,23 @@ const DATA = JSON.parse(document.getElementById("app-data").textContent);
         lines.push("");
       });
 
-      const payload = lines.join("\n");
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(payload).catch(() => {});
+      return lines.join("\n");
+    };
+
+    copyBtn.addEventListener("click", async () => {
+      const payload = buildCopyPayload();
+      if (!payload) {
+        return;
+      }
+      if (!navigator.clipboard || !navigator.clipboard.writeText) {
+        showCopyFeedback("Copy failed; select and copy the text manually.");
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(payload);
+        showCopyFeedback("Copied.");
+      } catch (error) {
+        showCopyFeedback("Copy failed; select and copy the text manually.");
       }
     });
 
@@ -356,5 +538,25 @@ const DATA = JSON.parse(document.getElementById("app-data").textContent);
       });
     }
 
-    renderSelectors();
-    renderResults();
+    const initFromUrl = () => {
+      const params = new URLSearchParams(window.location.search);
+      const stationParam = params.get("station");
+      if (!stationParam) {
+        return false;
+      }
+      const lineParam = params.get("line");
+      const station = findStationByParam(stationParam, lineParam);
+      if (!station) {
+        return false;
+      }
+      return selectStation(station, {
+        line: lineParam,
+        direction: params.get("direction"),
+        updateUrl: true,
+      });
+    };
+
+    if (!initFromUrl()) {
+      renderSelectors();
+      renderResults({ updateUrl: false });
+    }

@@ -1,51 +1,73 @@
-# DC Metro Station Exits
+# DC Metro Exit Guide
 
-## Use the web app
+A fast, offline-friendly DC Metro exit guide. Pick a station, line, and direction, and the app shows the train car and door closest to escalators, stairs, elevators, and other egress points. It is a small, practical tool, not an official WMATA product.
 
-Live app: https://wherethejobsat.github.io/DCMetro/
+This is for the moment when you are on the platform, the train is arriving, your phone has one bar, and you do not want to discover that your exit is three escalators and half a platform away.
 
-The web app is a mobile-friendly station exit guide. Choose a station, line,
-and direction to see which train car and door are closest to escalators,
-stairs, and elevators.
+## Live app
 
-This repo is also the source dataset behind the app. GitHub shows this README
-on the repo front page, so the live app link above is the fastest way to open
-the guide from the public repo.
+[Open the DC Metro Exit Guide](https://wherethejobsat.github.io/DCMetro/)
 
-## Source data
+## Screenshot / preview
 
-These data contain the information I used to create [these diagrams](https://www.reddit.com/r/washingtondc/comments/15mbos4/i_mapped_the_layouts_of_all_98_metro_stations_so/), which map the layouts of DC Metro stations and their exits.
+![DC Metro Exit Guide preview](docs/social-preview.svg)
 
-* meta.csv has info on what the variables mean.
+## Features
 
-* Doors.csv has a list of x values where a parked train's doors will be.
+- Search by station name, alternate name, subtitle, or WMATA station code.
+- Choose station, line, and direction.
+- Shows closest car/door for escalators, stairs, elevators, and other egress points.
+- Copy results as plain text.
+- Works offline after first load.
+- Static site: no server, no account, no ads, no tracking, no runtime WMATA API dependency.
 
-* Exits.csv has the text of exits for stations with multiple.
+## Why this exists
 
-* Stations.csv has info about each station.
+The 2025 Metro Station Platform Exit Guide is useful, but a phone on a platform is not where you want to pinch, pan, squint, and guess. This app turns that guide into a quick station lookup for DC Metro riders who want to board near the right exit before the train doors close.
 
-* Egresses.csv has info about each egress (i.e. icon, in my diagrams).
+## Data and attribution
 
-Let me know if you have ideas on how to improve the dataset!
+This project uses 2025 Metro Station Platform Exit Guide/source data from the files in this repo. See [DATA_PROVENANCE.md](DATA_PROVENANCE.md) for what is source material, what is generated, and what is hand-maintained.
 
-Note: I am not associated with WMATA.
+Not affiliated with, endorsed by, or maintained by WMATA. Station conditions can change.
 
-# Changelog June 14, 2025
+## Limitations
 
-* Introductory pages: several minor updates, including adding Github link
+- No live elevator/escalator outage status.
+- Station layouts and access conditions may change.
+- Recommendations assume normal train stopping positions and the source guide's station geometry.
+- Open an issue if a recommendation looks wrong.
 
-* All diagrams: Added compass icons to the top right. They point in the approximate direction of north, to the nearest 45 degree angle. The direction is based on the actual orientation of the station platform, and may differ from the orientation of the station on the official Metro map.
+## Development
 
-* Ashburn Branch: Added New Carrollton terminal to 10 stations
+The app is a static site generated with Python stdlib scripts. There is no Node toolchain and no Python package install step for the current build.
 
-* New Carrollton branch: Added SV to 5 stations and Ashburn terminal to 4 stations
+Build:
 
-* Brookland-CUA: Reversed escalator direction
+```sh
+python scripts/build_site.py
+```
 
-* Gallery Place: Changed exits to reflect new lettered designations, marked priority escalator for Exit D (elevator)
+Validate:
 
-* L'Enfant Plaza: Changed exits to reflect new lettered designations
+```sh
+python scripts/validate_build.py
+```
 
-* Silver Spring: Removed escalator that is normally for ingress
+Serve locally:
 
-* Washington Dulles International Airport: Added Washington to the name
+```sh
+python -m http.server --directory docs 8000
+```
+
+Then open `http://localhost:8000/`.
+
+`requirements.txt` is not needed for the current build or validation scripts. The site runtime is plain HTML, CSS, JavaScript, a web manifest, and a service worker.
+
+## Contributing
+
+Station corrections, data fixes, and small UX improvements are welcome. For station corrections, include the station, line, direction, exit/elevator/escalator/stair detail, the current app result, the corrected result, and the source or evidence.
+
+## License
+
+Code is licensed under the [MIT License](LICENSE). Code license and underlying data/source-material rights may differ; see [DATA_PROVENANCE.md](DATA_PROVENANCE.md).
