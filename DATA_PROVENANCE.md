@@ -41,6 +41,7 @@ Based on the current repo layout, these files are hand-maintained:
 - `scripts/validate_domain.py`
 - `README.md`
 - `DATA_PROVENANCE.md`
+- `CHANGELOG.md`
 - `LICENSE`
 - `.github/` workflow and issue templates.
 - `LAUNCH_POST.md`
