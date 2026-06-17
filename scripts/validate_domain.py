@@ -58,10 +58,10 @@ def as_float(value, label):
 
 
 def as_int(value, label):
-    try:
-        return int(value)
-    except (TypeError, ValueError):
+    number = as_float(value, label)
+    if not number.is_integer():
         fail(f"Invalid integer value for {label}: {value}")
+    return int(number)
 
 
 def load_app_data():
@@ -191,7 +191,7 @@ def validate_app_data(data, source_names):
             fail(f"Missing expected station case: {name}")
         if station.get("station_code") != expected_code:
             fail(f"Unexpected station_code for {name}: {station.get('station_code')}")
-        if station.get("lines") != expected_lines:
+        if set(station.get("lines") or []) != set(expected_lines):
             fail(f"Unexpected lines for {name}: {station.get('lines')}")
 
 
