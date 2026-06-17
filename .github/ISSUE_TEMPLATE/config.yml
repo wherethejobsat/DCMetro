@@ -1,5 +1,8 @@
 blank_issues_enabled: true
 contact_links:
-  - name: Open the live app
+  - name: Open the live DC Metro Exit Guide
     url: https://wherethejobsat.github.io/DCMetro/
-    about: Use the public DC Metro Exit Guide.
+    about: Check the current public app before filing a report.
+  - name: Read data provenance
+    url: https://github.com/wherethejobsat/DCMetro/blob/main/DATA_PROVENANCE.md
+    about: Review source files, generated files, and source-material caveats.
