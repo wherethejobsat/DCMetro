@@ -3,6 +3,7 @@ const DATA = JSON.parse(document.getElementById("app-data").textContent);
     const stationSuggestions = document.getElementById("stationSuggestions");
     const clearStation = document.getElementById("clearStation");
     const lineSelect = document.getElementById("lineSelect");
+    const lineStatic = document.getElementById("lineStatic");
     const directionSelect = document.getElementById("directionSelect");
     const results = document.getElementById("results");
     const resultsTitle = document.getElementById("resultsTitle");
@@ -203,6 +204,19 @@ const DATA = JSON.parse(document.getElementById("app-data").textContent);
       return Boolean(station && station.lines.length > 1);
     };
 
+    const showLineDropdown = () => {
+      lineSelect.hidden = false;
+      lineStatic.hidden = true;
+      lineStatic.textContent = "";
+    };
+
+    const showStaticLine = (lineCode) => {
+      lineSelect.hidden = true;
+      lineSelect.disabled = true;
+      lineStatic.textContent = lineCode ? `${lineName(lineCode)} Line` : "";
+      lineStatic.hidden = false;
+    };
+
     const directionOptionsForLine = (station, lineCode) => {
       // The source data gives platform direction geometry. At shared-platform
       // stations, a selected line labels the trip, but it does not create a
@@ -238,6 +252,7 @@ const DATA = JSON.parse(document.getElementById("app-data").textContent);
       if (!selectedStation) {
         lineSelect.disabled = true;
         directionSelect.disabled = true;
+        showLineDropdown();
         fillSelect(lineSelect, [], "Select a station first");
         fillSelect(directionSelect, [], "Select a station first");
         renderLineTags(null);
@@ -250,10 +265,21 @@ const DATA = JSON.parse(document.getElementById("app-data").textContent);
         label: `${lineName(code)} Line`,
       }));
 
-      fillSelect(lineSelect, lineOptions, "Select a line");
-      lineSelect.disabled = false;
       const requestedLine = findLineCode(selectedStation, preferredLine);
-      lineSelect.value = requestedLine || (lineOptions.length ? lineOptions[0].value : "");
+      const selectedLine = requestedLine || (lineOptions.length ? lineOptions[0].value : "");
+
+      fillSelect(
+        lineSelect,
+        lineOptions,
+        selectedStation.lines.length > 1 ? "Select a line" : ""
+      );
+      lineSelect.value = selectedLine;
+      if (selectedStation.lines.length === 1) {
+        showStaticLine(selectedLine);
+      } else {
+        showLineDropdown();
+        lineSelect.disabled = false;
+      }
 
       renderDirectionSelector(preferredDirection);
 

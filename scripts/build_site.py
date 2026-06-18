@@ -343,6 +343,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       margin-bottom: 6px;
     }
 
+    [hidden] {
+      display: none !important;
+    }
+
     input, select, button {
       width: 100%;
       min-height: 44px;
@@ -358,6 +362,20 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     input:focus, select:focus, button:focus {
       outline: 3px solid rgba(224, 161, 95, 0.4);
       outline-offset: 3px;
+    }
+
+    .static-select {
+      width: 100%;
+      min-height: 44px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      padding: 10px 12px;
+      background: var(--accent-soft);
+      color: var(--ink);
+      display: flex;
+      align-items: center;
+      font-size: 1rem;
+      font-weight: 700;
     }
 
     .combo {
@@ -563,14 +581,15 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         <div id=\"stationSuggestions\" class=\"suggestions\" hidden></div>
         <p class=\"helper\">Try one:</p>
         <div class=\"quick-examples\" aria-label=\"Example stations\">
-          <button class=\"example-btn\" type=\"button\" data-station-example=\"Metro Center\">Metro Center</button>
-          <button class=\"example-btn\" type=\"button\" data-station-example=\"Gallery Place\">Gallery Place</button>
-          <button class=\"example-btn\" type=\"button\" data-station-example=\"L'Enfant Plaza\">L'Enfant Plaza</button>
+          <button class=\"example-btn\" type=\"button\" data-station-example=\"Metro Center (Upper Level)\">Metro Center (Upper Level)</button>
+          <button class=\"example-btn\" type=\"button\" data-station-example=\"Rosslyn\">Rosslyn</button>
+          <button class=\"example-btn\" type=\"button\" data-station-example=\"Anacostia\">Anacostia</button>
         </div>
       </div>
       <div class=\"field\">
-        <label for=\"lineSelect\">Line</label>
+        <label id=\"lineLabel\" for=\"lineSelect\">Line</label>
         <select id=\"lineSelect\" disabled></select>
+        <div id=\"lineStatic\" class=\"static-select\" aria-labelledby=\"lineLabel\" hidden></div>
         <div id=\"lineTags\" class=\"tags\"></div>
       </div>
       <div class=\"field\">
@@ -612,6 +631,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     const stationSuggestions = document.getElementById("stationSuggestions");
     const clearStation = document.getElementById("clearStation");
     const lineSelect = document.getElementById("lineSelect");
+    const lineStatic = document.getElementById("lineStatic");
     const directionSelect = document.getElementById("directionSelect");
     const results = document.getElementById("results");
     const resultsTitle = document.getElementById("resultsTitle");
@@ -812,6 +832,19 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       return Boolean(station && station.lines.length > 1);
     };
 
+    const showLineDropdown = () => {
+      lineSelect.hidden = false;
+      lineStatic.hidden = true;
+      lineStatic.textContent = "";
+    };
+
+    const showStaticLine = (lineCode) => {
+      lineSelect.hidden = true;
+      lineSelect.disabled = true;
+      lineStatic.textContent = lineCode ? `${lineName(lineCode)} Line` : "";
+      lineStatic.hidden = false;
+    };
+
     const directionOptionsForLine = (station, lineCode) => {
       // The source data gives platform direction geometry. At shared-platform
       // stations, a selected line labels the trip, but it does not create a
@@ -847,6 +880,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       if (!selectedStation) {
         lineSelect.disabled = true;
         directionSelect.disabled = true;
+        showLineDropdown();
         fillSelect(lineSelect, [], "Select a station first");
         fillSelect(directionSelect, [], "Select a station first");
         renderLineTags(null);
@@ -859,10 +893,21 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         label: `${lineName(code)} Line`,
       }));
 
-      fillSelect(lineSelect, lineOptions, "Select a line");
-      lineSelect.disabled = false;
       const requestedLine = findLineCode(selectedStation, preferredLine);
-      lineSelect.value = requestedLine || (lineOptions.length ? lineOptions[0].value : "");
+      const selectedLine = requestedLine || (lineOptions.length ? lineOptions[0].value : "");
+
+      fillSelect(
+        lineSelect,
+        lineOptions,
+        selectedStation.lines.length > 1 ? "Select a line" : ""
+      );
+      lineSelect.value = selectedLine;
+      if (selectedStation.lines.length === 1) {
+        showStaticLine(selectedLine);
+      } else {
+        showLineDropdown();
+        lineSelect.disabled = false;
+      }
 
       renderDirectionSelector(preferredDirection);
 
