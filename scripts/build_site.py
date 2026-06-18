@@ -38,6 +38,61 @@ LINE_COLS = {
     "SV": "hasSV",
 }
 
+STATION_REFERENCE_TRANSLATION = str.maketrans(
+    {
+        "\u2018": "'",
+        "\u2019": "'",
+        "\u201b": "'",
+        "\u2032": "'",
+        "\uff07": "'",
+        "\u02bc": "'",
+    }
+)
+AMBIGUOUS_STATION_REFERENCE = object()
+MISSING_STATION_REFERENCE = object()
+
+
+def normalize_station_reference(value):
+    cleaned = (value or "").strip().translate(STATION_REFERENCE_TRANSLATION)
+    return " ".join(cleaned.split())
+
+
+def add_station_reference(lookup, reference_name, station_name):
+    key = normalize_station_reference(reference_name)
+    if not key:
+        return
+    existing = lookup.get(key, MISSING_STATION_REFERENCE)
+    if existing is MISSING_STATION_REFERENCE:
+        lookup[key] = station_name
+    elif existing is AMBIGUOUS_STATION_REFERENCE:
+        return
+    elif existing != station_name:
+        lookup[key] = AMBIGUOUS_STATION_REFERENCE
+
+
+def build_station_reference_lookup(station_rows):
+    lookup = {}
+    for row in station_rows:
+        station_name = (row.get("nameStd") or "").strip()
+        if not station_name:
+            continue
+        add_station_reference(lookup, station_name, station_name)
+        add_station_reference(lookup, row.get("nameAlt"), station_name)
+    return lookup
+
+
+def resolve_station_reference(station_name, station_lookup, file_label):
+    raw_station_name = (station_name or "").strip()
+    if not raw_station_name:
+        return ""
+    resolved = station_lookup.get(normalize_station_reference(raw_station_name))
+    if resolved is None:
+        fail(f"{file_label} references unknown station: {raw_station_name}")
+    if resolved is AMBIGUOUS_STATION_REFERENCE:
+        fail(f"{file_label} has ambiguous station reference: {raw_station_name}")
+    return resolved
+
+
 # WMATA rail station codes used by public APIs. Split-level transfer rows use
 # the code for the level that serves that row's lines.
 WMATA_STATION_CODES = {
@@ -1350,10 +1405,14 @@ def build_doors(door_rows):
     return doors, meta
 
 
-def build_exit_map(exit_rows):
+def build_exit_map(exit_rows, station_lookup):
     exit_map = defaultdict(dict)
     for row in exit_rows:
-        station = (row.get("nameStd") or "").strip()
+        station = resolve_station_reference(
+            row.get("nameStd"),
+            station_lookup,
+            "Exits.csv",
+        )
         label = (row.get("exitLabel") or "").strip()
         description = (row.get("description") or "").strip()
         if station and label:
@@ -1427,13 +1486,14 @@ def build_data():
     doors, door_meta = build_doors(door_rows)
     door_by_index = {door["door_index"]: door for door in doors}
     total_doors = len(doors)
-    exit_map = build_exit_map(exit_rows)
 
     station_names = {
         (row.get("nameStd") or "").strip()
         for row in station_rows
         if (row.get("nameStd") or "").strip()
     }
+    station_lookup = build_station_reference_lookup(station_rows)
+    exit_map = build_exit_map(exit_rows, station_lookup)
     missing_station_codes = sorted(station_names - set(WMATA_STATION_CODES))
     if missing_station_codes:
         fail(f"Missing WMATA station codes: {', '.join(missing_station_codes)}")
@@ -1483,16 +1543,15 @@ def build_data():
         stations.append(station)
         station_map[name] = station
 
-    unknown_stations = set()
-
     for row in egress_rows:
-        station_name = (row.get("nameStd") or "").strip()
+        station_name = resolve_station_reference(
+            row.get("nameStd"),
+            station_lookup,
+            "Egresses.csv",
+        )
         if not station_name:
             continue
         station = station_map.get(station_name)
-        if station is None:
-            unknown_stations.add(station_name)
-            continue
 
         icon = (row.get("icon") or "").strip()
         egress_type = EGRESS_TYPE_MAP.get(icon, "other")
@@ -1547,9 +1606,6 @@ def build_data():
                 "doors": map_doors_for_direction(dir_key),
             }
             station["egress_by_dir"][dir_key][egress_type].append(egress_entry)
-
-    if unknown_stations:
-        fail(f"Egresses reference unknown stations: {', '.join(sorted(unknown_stations))}")
 
     for station in stations:
         for dir_key in ["WB", "EB"]:

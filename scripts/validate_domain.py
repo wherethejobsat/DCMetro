@@ -5,6 +5,8 @@ import re
 import sys
 from pathlib import Path
 
+from build_site import build_station_reference_lookup, resolve_station_reference
+
 BASE_DIR = Path(__file__).resolve().parents[1]
 DOCS_DIR = BASE_DIR / "docs"
 
@@ -99,12 +101,13 @@ def load_station_sources():
     return by_name
 
 
-def validate_cross_file_station_references(source_names):
+def validate_cross_file_station_references(source_rows):
+    station_lookup = build_station_reference_lookup(source_rows)
     for file_name in ("Exits.csv", "Egresses.csv"):
         for row in read_rows(BASE_DIR / file_name):
             station = row.get("nameStd", "").strip()
-            if station and station not in source_names:
-                fail(f"{file_name} references unknown station: {station}")
+            if station:
+                resolve_station_reference(station, station_lookup, file_name)
 
 
 def validate_expected_source_cases(source_by_name):
@@ -167,7 +170,7 @@ def validate_embedded_inventory(data, source_names):
 def main():
     source_by_name = load_station_sources()
     source_names = set(source_by_name)
-    validate_cross_file_station_references(source_names)
+    validate_cross_file_station_references(source_by_name.values())
     validate_expected_source_cases(source_by_name)
     validate_embedded_inventory(load_app_data(), source_names)
     print("Domain validation passed.")

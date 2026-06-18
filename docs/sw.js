@@ -1,4 +1,4 @@
-const CACHE_VERSION = "a82f9c57d8";
+const CACHE_VERSION = "a8673bf293";
 const CACHE_NAME = `metro-exit-${CACHE_VERSION}`;
 const ASSETS = [
   "./",
