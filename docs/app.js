@@ -325,6 +325,12 @@ const DATA = JSON.parse(document.getElementById("app-data").textContent);
       details.textContent = `${formatDoorIndex(egress.doors)}${delta}`;
 
       wrapper.appendChild(title);
+      if (egress.note) {
+        const note = document.createElement("div");
+        note.className = "muted";
+        note.textContent = egress.note;
+        wrapper.appendChild(note);
+      }
       wrapper.appendChild(doorLine);
       wrapper.appendChild(details);
       return wrapper;
@@ -392,7 +398,11 @@ const DATA = JSON.parse(document.getElementById("app-data").textContent);
       resultsSub.textContent = directionLabel;
       copyBtn.disabled = false;
 
+      const transfersForDir = selectedStation.transfers_by_dir
+        ? (selectedStation.transfers_by_dir[directionKey] || [])
+        : [];
       const groups = [
+        { key: "transfers", label: "Transfers", list: transfersForDir },
         { key: "escalator", label: "Escalators" },
         { key: "stairs", label: "Stairs" },
         { key: "elevator", label: "Elevators" },
@@ -409,7 +419,7 @@ const DATA = JSON.parse(document.getElementById("app-data").textContent);
         header.textContent = group.label;
         block.appendChild(header);
 
-        const list = egressForDir[group.key] || [];
+        const list = group.list || egressForDir[group.key] || [];
         if (!list.length) {
           const empty = document.createElement("div");
           empty.className = "empty";
@@ -494,6 +504,9 @@ const DATA = JSON.parse(document.getElementById("app-data").textContent);
       const directionKey = directionSelect.value || selectedStation.directions[0].key;
       const directionLabel = findDirectionLabel(selectedStation, directionKey);
       const egressForDir = selectedStation.egress_by_dir[directionKey] || {};
+      const transfersForDir = selectedStation.transfers_by_dir
+        ? (selectedStation.transfers_by_dir[directionKey] || [])
+        : [];
 
       const lines = [];
       lines.push(`Station: ${selectedStation.name}`);
@@ -502,6 +515,7 @@ const DATA = JSON.parse(document.getElementById("app-data").textContent);
       lines.push("");
 
       const groups = [
+        { key: "transfers", label: "Transfers", list: transfersForDir },
         { key: "escalator", label: "Escalators" },
         { key: "stairs", label: "Stairs" },
         { key: "elevator", label: "Elevators" },
@@ -510,7 +524,7 @@ const DATA = JSON.parse(document.getElementById("app-data").textContent);
 
       groups.forEach((group) => {
         lines.push(`${group.label}:`);
-        const list = egressForDir[group.key] || [];
+        const list = group.list || egressForDir[group.key] || [];
         if (!list.length) {
           lines.push("- None");
         } else {
@@ -519,7 +533,8 @@ const DATA = JSON.parse(document.getElementById("app-data").textContent);
             const doorLabels = egress.doors.map(formatDoorLabel).join(" or ");
             const delta = egress.delta != null ? ` (delta ${egress.delta})` : "";
             const indexLabel = formatDoorIndex(egress.doors);
-            lines.push(`- ${label}: ${doorLabels}, ${indexLabel}${delta}`);
+            const note = egress.note ? `; ${egress.note}` : "";
+            lines.push(`- ${label}: ${doorLabels}, ${indexLabel}${delta}${note}`);
           });
         }
         lines.push("");

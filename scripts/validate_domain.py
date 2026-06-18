@@ -36,6 +36,17 @@ EXPECTED_CASES = [
     ("Columbia Heights", "E04", {"GR", "YL"}),
 ]
 
+EXPECTED_TRANSFER_TARGETS = {
+    "Metro Center (Upper Level)": {"BL", "OR", "SV"},
+    "Metro Center (Lower Level)": {"RD"},
+    "Gallery Place (Upper Level)": {"GR", "YL"},
+    "Gallery Place (Lower Level)": {"RD"},
+    "L'Enfant Plaza (Upper Level)": {"BL", "OR", "SV"},
+    "L'Enfant Plaza (Lower Level)": {"GR", "YL"},
+    "Fort Totten (Upper Level)": {"GR", "YL"},
+    "Fort Totten (Lower Level)": {"RD"},
+}
+
 
 def fail(message):
     print(f"Error: {message}", file=sys.stderr)
@@ -155,6 +166,25 @@ def validate_embedded_inventory(data, source_names):
         if any(not direction.get("label") for direction in directions):
             fail(f"Embedded station has an empty direction label: {name}")
 
+        transfers_by_dir = station.get("transfers_by_dir")
+        if set((transfers_by_dir or {}).keys()) != DIRECTION_KEYS:
+            fail(f"Embedded station has invalid transfer direction keys: {name}")
+        for direction_key, transfers in transfers_by_dir.items():
+            if not isinstance(transfers, list):
+                fail(f"Embedded station transfer list is not a list: {name} {direction_key}")
+            for transfer in transfers:
+                target_lines = set(transfer.get("target_lines") or [])
+                if not target_lines:
+                    fail(f"Embedded transfer has no target lines: {name} {direction_key}")
+                unknown_transfer_lines = target_lines - LINE_CODES
+                if unknown_transfer_lines:
+                    fail(
+                        "Embedded transfer has unknown target lines for "
+                        f"{name}: {', '.join(sorted(unknown_transfer_lines))}"
+                    )
+                if not transfer.get("doors"):
+                    fail(f"Embedded transfer has no door recommendation: {name} {direction_key}")
+
     by_name = {station.get("name"): station for station in stations}
     for name, expected_code, expected_lines in EXPECTED_CASES:
         station = by_name.get(name)
@@ -165,6 +195,25 @@ def validate_embedded_inventory(data, source_names):
         found_lines = set(station.get("lines") or [])
         if found_lines != expected_lines:
             fail(f"Unexpected embedded lines for {name}: {sorted(found_lines)}")
+
+    for name, expected_targets in EXPECTED_TRANSFER_TARGETS.items():
+        station = by_name.get(name)
+        if station is None:
+            fail(f"Embedded data is missing expected transfer station: {name}")
+        for direction_key in sorted(DIRECTION_KEYS):
+            transfers = station.get("transfers_by_dir", {}).get(direction_key, [])
+            if not transfers:
+                fail(f"Embedded data is missing transfers for {name} {direction_key}")
+            found_targets = {
+                target_line
+                for transfer in transfers
+                for target_line in (transfer.get("target_lines") or [])
+            }
+            if found_targets != expected_targets:
+                fail(
+                    f"Unexpected transfer target lines for {name} {direction_key}: "
+                    f"{sorted(found_targets)}"
+                )
 
 
 def main():

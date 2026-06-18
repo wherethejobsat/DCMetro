@@ -206,7 +206,19 @@ EGRESS_TYPE_MAP = {
     "stair": "stairs",
 }
 
+ACCESS_LABELS = {
+    "elevator": "Elevator",
+    "escalator": "Escalator",
+    "other": "Path",
+    "stairs": "Stairs",
+}
+
 REVERSE_DOORS_FOR_DIR = "EB"
+LEVEL_SUFFIX_RE = re.compile(r" \((Lower|Upper) Level\)$")
+TRANSFER_LINE_RE = re.compile(
+    r"\b(?:All\s+)?((?:RD|GR|YL|BL|OR|SV)(?:/(?:RD|GR|YL|BL|OR|SV))*)\s+Trains\b"
+)
+TRANSFER_TOWARD_RE = re.compile(r"\bTrains to ([^,]+)")
 
 REQUIRED_COLUMNS = {
     "Doors": ["Car", "x"],
@@ -953,6 +965,12 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       details.textContent = `${formatDoorIndex(egress.doors)}${delta}`;
 
       wrapper.appendChild(title);
+      if (egress.note) {
+        const note = document.createElement("div");
+        note.className = "muted";
+        note.textContent = egress.note;
+        wrapper.appendChild(note);
+      }
       wrapper.appendChild(doorLine);
       wrapper.appendChild(details);
       return wrapper;
@@ -1020,7 +1038,11 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       resultsSub.textContent = directionLabel;
       copyBtn.disabled = false;
 
+      const transfersForDir = selectedStation.transfers_by_dir
+        ? (selectedStation.transfers_by_dir[directionKey] || [])
+        : [];
       const groups = [
+        { key: "transfers", label: "Transfers", list: transfersForDir },
         { key: "escalator", label: "Escalators" },
         { key: "stairs", label: "Stairs" },
         { key: "elevator", label: "Elevators" },
@@ -1037,7 +1059,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         header.textContent = group.label;
         block.appendChild(header);
 
-        const list = egressForDir[group.key] || [];
+        const list = group.list || egressForDir[group.key] || [];
         if (!list.length) {
           const empty = document.createElement("div");
           empty.className = "empty";
@@ -1122,6 +1144,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       const directionKey = directionSelect.value || selectedStation.directions[0].key;
       const directionLabel = findDirectionLabel(selectedStation, directionKey);
       const egressForDir = selectedStation.egress_by_dir[directionKey] || {};
+      const transfersForDir = selectedStation.transfers_by_dir
+        ? (selectedStation.transfers_by_dir[directionKey] || [])
+        : [];
 
       const lines = [];
       lines.push(`Station: ${selectedStation.name}`);
@@ -1130,6 +1155,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       lines.push("");
 
       const groups = [
+        { key: "transfers", label: "Transfers", list: transfersForDir },
         { key: "escalator", label: "Escalators" },
         { key: "stairs", label: "Stairs" },
         { key: "elevator", label: "Elevators" },
@@ -1138,7 +1164,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
       groups.forEach((group) => {
         lines.push(`${group.label}:`);
-        const list = egressForDir[group.key] || [];
+        const list = group.list || egressForDir[group.key] || [];
         if (!list.length) {
           lines.push("- None");
         } else {
@@ -1147,7 +1173,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             const doorLabels = egress.doors.map(formatDoorLabel).join(" or ");
             const delta = egress.delta != null ? ` (delta ${egress.delta})` : "";
             const indexLabel = formatDoorIndex(egress.doors);
-            lines.push(`- ${label}: ${doorLabels}, ${indexLabel}${delta}`);
+            const note = egress.note ? `; ${egress.note}` : "";
+            lines.push(`- ${label}: ${doorLabels}, ${indexLabel}${delta}${note}`);
           });
         }
         lines.push("");
@@ -1470,6 +1497,108 @@ def platform_is_side(platform_type):
     return platform in {"side", "gap island"}
 
 
+def base_station_name(station_name):
+    return LEVEL_SUFFIX_RE.sub("", station_name)
+
+
+def is_split_level_station(station_name):
+    return bool(LEVEL_SUFFIX_RE.search(station_name))
+
+
+def line_order_index(line_code):
+    return [code for code, _name, _color in LINE_DEFS].index(line_code)
+
+
+def format_line_group(line_codes):
+    names = [name for code, name, _color in LINE_DEFS if code in set(line_codes)]
+    if not names:
+        return ""
+    suffix = "Line" if len(names) == 1 else "Lines"
+    return f"{'/'.join(names)} {suffix}"
+
+
+def transfer_target_lines(description):
+    match = TRANSFER_LINE_RE.search(description or "")
+    if not match:
+        return []
+    codes = [code for code in match.group(1).split("/") if code in LINE_COLS]
+    return sorted(set(codes), key=line_order_index)
+
+
+def transfer_label_parts(description, target_lines, egress_type):
+    line_group = format_line_group(target_lines)
+    label = f"To {line_group}" if line_group else "Transfer"
+    toward = TRANSFER_TOWARD_RE.search(description or "")
+    if toward:
+        label = f"{label} toward {toward.group(1).strip()}"
+
+    note_parts = [ACCESS_LABELS.get(egress_type, "Path")]
+    if "," in description:
+        note_parts.append(description.split(",", 1)[1].strip())
+    return label, ". ".join(part for part in note_parts if part)
+
+
+def has_transfer_entries(station):
+    return any(station["transfers_by_dir"][dir_key] for dir_key in ("WB", "EB"))
+
+
+def copy_transfer_entry(source, label, note, target_lines):
+    return {
+        "type": source["type"],
+        "label": label,
+        "note": note,
+        "target_lines": target_lines,
+        "x": source["x"],
+        "delta": source["delta"],
+        "doors": source["doors"],
+    }
+
+
+def add_split_level_transfer_fallbacks(stations):
+    by_base_name = defaultdict(list)
+    for station in stations:
+        if is_split_level_station(station["name"]):
+            by_base_name[base_station_name(station["name"])].append(station)
+
+    for level_stations in by_base_name.values():
+        if len(level_stations) < 2:
+            continue
+        for station in level_stations:
+            if has_transfer_entries(station):
+                continue
+            target_lines = sorted(
+                {
+                    line
+                    for other in level_stations
+                    if other is not station
+                    for line in other["lines"]
+                },
+                key=line_order_index,
+            )
+            if not target_lines:
+                continue
+            label = f"To {format_line_group(target_lines)}"
+            for dir_key in ("WB", "EB"):
+                for egress_type in ("stairs", "escalator", "elevator"):
+                    for source in station["egress_by_dir"][dir_key][egress_type]:
+                        note = ACCESS_LABELS.get(egress_type, "Path")
+                        station["transfers_by_dir"][dir_key].append(
+                            copy_transfer_entry(source, label, note, target_lines)
+                        )
+
+
+def sort_transfer_entries(station):
+    for dir_key in ("WB", "EB"):
+        station["transfers_by_dir"][dir_key].sort(
+            key=lambda item: (
+                [line_order_index(code) for code in item["target_lines"]],
+                item["x"],
+                item["label"],
+                item.get("note", ""),
+            )
+        )
+
+
 def nearest_doors(doors, x_value, tie_threshold=0.25):
     positions = [door["x"] for door in doors]
     left = 0
@@ -1584,6 +1713,10 @@ def build_data():
                 "WB": {"escalator": [], "stairs": [], "elevator": [], "other": []},
                 "EB": {"escalator": [], "stairs": [], "elevator": [], "other": []},
             },
+            "transfers_by_dir": {
+                "WB": [],
+                "EB": [],
+            },
         }
         stations.append(station)
         station_map[name] = station
@@ -1606,6 +1739,7 @@ def build_data():
 
         exit_label = (row.get("exitLabel") or "").strip()
         exit_desc = exit_map.get(station_name, {}).get(exit_label, "")
+        target_lines = transfer_target_lines(exit_desc)
         if exit_label and exit_desc:
             label = f"Exit {exit_label}: {exit_desc}"
         elif exit_label:
@@ -1651,8 +1785,27 @@ def build_data():
                 "doors": map_doors_for_direction(dir_key),
             }
             station["egress_by_dir"][dir_key][egress_type].append(egress_entry)
+            if target_lines and any(code not in station["lines"] for code in target_lines):
+                transfer_label, transfer_note = transfer_label_parts(
+                    exit_desc,
+                    target_lines,
+                    egress_type,
+                )
+                station["transfers_by_dir"][dir_key].append(
+                    {
+                        "type": egress_type,
+                        "label": transfer_label,
+                        "note": transfer_note,
+                        "target_lines": target_lines,
+                        "x": round(x_value, 3),
+                        "delta": delta,
+                        "doors": map_doors_for_direction(dir_key),
+                    }
+                )
 
+    add_split_level_transfer_fallbacks(stations)
     for station in stations:
+        sort_transfer_entries(station)
         for dir_key in ["WB", "EB"]:
             for egress_type in station["egress_by_dir"][dir_key]:
                 station["egress_by_dir"][dir_key][egress_type].sort(
